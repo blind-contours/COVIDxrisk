@@ -20,3 +20,5 @@ Imports:
     sf,
     tidyr,
     tigris
+URL: https://github.com/blind-contours/COVIDxrisk
+BugReports: https://github.com/blind-contours/COVIDxrisk/issues
