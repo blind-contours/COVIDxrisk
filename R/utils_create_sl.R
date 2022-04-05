@@ -1,8 +1,8 @@
-
+library(here)
 create_superlearner <- function(){
 
   ## source the custom learners built for poisson outcomes
-  sapply(list.files(path = "R/poisson_learners",
+  sapply(list.files(path = here("R/poisson_learners"),
                     full.names = TRUE),
          source)
   ## set up the custom learners and some standard ones as well
