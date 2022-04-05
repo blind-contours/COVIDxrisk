@@ -1,3 +1,4 @@
+library(here)
 source("R/util.R")
 plan(multisession)
 cpus <- 20
