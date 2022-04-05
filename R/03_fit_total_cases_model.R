@@ -1,5 +1,5 @@
 library(here)
-source("R/util.R")
+source(here("R/util.R"))
 plan(multisession)
 cpus <- 20
 
