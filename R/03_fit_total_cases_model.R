@@ -235,7 +235,7 @@ fit_sl_varimp <- function(outcome,label) {
     outcome = outcome,
     folds = origami::make_folds(covid_data_processed, fold_fun = folds_vfold, V = 10))
 
-  discrete_sl <- source("R/utils_create_sl.R")
+  discrete_sl <- source(here("R/utils_create_sl.R"))
   discrete_sl <- discrete_sl$value()
   ## fit the sl3 object
   sl_fit <- discrete_sl$train(task)
