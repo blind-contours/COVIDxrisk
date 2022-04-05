@@ -1,6 +1,6 @@
 source("R/util.R")
 plan(multisession)
-cpus <- 5
+cpus <- 20
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q){
 
@@ -251,9 +251,9 @@ fit_sl_varimp <- function(outcome,label) {
 
   SL_results <- list('fit' = sl_fit, 'var_imp' = var_importance)
 
-  saveRDS(SL_results, here(paste("Analysis/update_data/data/processed/", outcome, ".RDS", sep = "")))
+  saveRDS(SL_results, here(paste("Models/processed/", outcome, ".RDS", sep = "")))
 
-  return(list('var_imp' = var_importance))
+  return(NULL)
 }
 
 
