@@ -5,7 +5,7 @@ check_packages = function(p){
   library(p, character.only = TRUE)
 }
 
-packages <- c("tigris", "sf", "caret", "rvest", "dplyr",  "origami", "knitr", "ggplot2", "R6", "gam", "gbm", "remotes",
+packages <- c("caret", "rvest", "dplyr",  "origami", "knitr", "ggplot2", "R6", "gam", "gbm", "remotes",
               "tidyverse", "tidycensus", "here", "tidyr", "readxl", "panelr", "pROC", "imputeTS", "data.table", "xgboost", "zeallot",
               "pheatmap", "ggfortify", "gtools", "readxl", "readr", "origami", "ggplot2", "R6", "data.table", "cowplot", "future", "parallel", "doParallel")
 
