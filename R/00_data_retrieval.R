@@ -1,17 +1,17 @@
 ##############################
 # Load librairies
 ##############################
-# packages <- c("tigris", "sf", "caret", "rvest", "dplyr",
-#              "tidyverse", "here", "tidyr", "readxl", "panelr")
-#
-# check_packages = function(p){
-#   if(!require(p, character.only = TRUE)){
-#     install.packages(p)
-#   }
-#   library(p, character.only = TRUE)
-# }
-#
-# lapply(packages, check_packages)
+packages <- c("tigris", "sf", "caret", "rvest", "dplyr",
+             "tidyverse", "here", "tidyr", "readxl", "panelr")
+
+check_packages = function(p){
+  if(!require(p, character.only = TRUE)){
+    install.packages(p)
+  }
+  library(p, character.only = TRUE)
+}
+
+lapply(packages, check_packages)
 
 # Download USFacts data
 usf <- data.frame(
@@ -26,7 +26,7 @@ usf$fips <- as.integer(usf[, 1])
 usf <- usf[!((usf$State %in% c("AK", "HI")) | (usf$fips == 0)), ]
 
 # Read airports data
-airports <- read.csv(here("Analysis/update_data/data/processed/counties_airports.csv"))
+airports <- read.csv(here("data/counties_airports.csv"))
 
 
 # Read counties polygons
@@ -108,23 +108,23 @@ for (i in 1:nrow(counties)) {
 }
 
 # Add population data
-county_population <- read.csv(here("Analysis/update_data/data/processed/nir_covid_county_population_usafacts.csv"))
+county_population <- read.csv(here("data/nir_covid_county_population_usafacts.csv"))
 counties$Population <- county_population$population[match(counties$FIPS, as.integer(county_population$countyFIPS))]
 
 
 # Add county GDP data
-county_GDP <- read.csv(here("Analysis/update_data/data/raw/CountyGDP.csv"))
+county_GDP <- read.csv(here("data/CountyGDP.csv"))
 counties$GDP <- county_GDP$X2018[match(counties$FIPS, as.integer(county_GDP$GeoFips))]
 
 # Add single value variables from census
 for (name in c("air_quality", "all_heartdisease_deathrate", "all_stroke_deathrate", "num_hospitals", "percent_park_access", "urban_rural_status")) {
-  a <- read.csv(here(paste("Analysis/update_data/data/raw/", name, ".csv", sep = "")))
+  a <- read.csv(here(paste("data/", name, ".csv", sep = "")))
   a$Value[a$Value == -1] <- NA
   counties[name] <- a$Value[match(counties$FIPS, a$cnty_fips)]
 }
 
 # Add analytic_data2020
-analytic_data <- read.csv(here("Analysis/update_data/data/raw/analytic_data2020.csv"))
+analytic_data <- read.csv(here("data/analytic_data2020.csv"))
 analytic_data <- analytic_data[2:nrow(analytic_data), ]
 counties <- cbind(counties, analytic_data[match(counties$FIPS, as.integer(as.character(analytic_data$X5.digit.FIPS.Code))),
                               c(8, 34, 39, 70, 75, 80, 85, 90, 95, 105, 130, 135,
@@ -134,7 +134,7 @@ counties <- cbind(counties, analytic_data[match(counties$FIPS, as.integer(as.cha
 # Add County_Table_Chronic_Conditions_Prevalence_by_Age_2017.xlsx
 age_group <- c("prev_2017_all_ages_", "prev_2017_under_65_", "prev_2017_over_65_")
 for (i in 1:3) {
-  a <- readxl::read_excel(here("Analysis/update_data/data/chronic_conditions_prev_by_age_2017.xlsx"), sheet = i)
+  a <- readxl::read_excel(here("data/chronic_conditions_prev_by_age_2017.xlsx"), sheet = i)
   b <- a[, 4:24]
   colnames(b) <- paste0(age_group[i], colnames(b))
   c <- data.frame(a[, 1:3], b)
@@ -143,7 +143,7 @@ for (i in 1:3) {
 
 
 # Add SVI2018_US_COUNTY.csv - this has the CDC vulnerability scores:
-county_SVI <- read.csv(here("Analysis/update_data/data/raw/SVI2018_US_COUNTY.csv"))
+county_SVI <- read.csv(here("data/SVI2018_US_COUNTY.csv"))
 county_SVI <- select(county_SVI, c(
   "FIPS",
   "EPL_AGE65",
@@ -164,7 +164,7 @@ counties <- cbind(counties, county_SVI[match(counties$FIPS, county_SVI$FIPS), ])
 
 # Changed from tester2.csv to 2018ACS.csv
 # 06/10/2020 changed 2018ACS to acs_2018_Jun.csv
-acs <- read.csv(here("Analysis/update_data/data/raw/acs_2018_Jun.csv"))
+acs <- read.csv(here("data/acs_2018_Jun.csv"))
 counties <- cbind(counties, acs[match(counties$FIPS, acs$GEIOD), 3:ncol(acs)])
 
 # Prepare states to match census state fips to NOAA state fips
@@ -178,14 +178,14 @@ counties <- counties[,-128]
 ####################### CLIMATE CHANGE DATA ON TEMPERATURE CHANGES OVER YEARS #################################
 ###############################################################################################################
 
-temp_lm_models_by_county <- read_excel(here("Analysis/update_data/data/raw/temp_lm_models_by_county.xlsx"))
+temp_lm_models_by_county <- read_excel(here("data/temp_lm_models_by_county.xlsx"))
 
 counties <- merge(counties,
                   temp_lm_models_by_county, by.x = "FIPS", by.y = "fips")
 
 
 # Read commuting data
-commuting <- readxl::read_excel(here("Analysis/update_data/data/raw/USCommuting2015.xlsx"), skip = 6)
+commuting <- readxl::read_excel(here("data/USCommuting2015.xlsx"), skip = 6)
 commuting <- commuting[1:139433, ]
 
 fips_residence <- as.integer(commuting$`State FIPS Code...1`) * 1000 + as.integer(commuting$`County FIPS Code...2`)
@@ -202,7 +202,7 @@ counties$agg_commuting_by_work_place <- counties$agg_commuting_by_work_place / c
 
 
 ## read in employment data
-lbs_employment_types <- read_excel(here("Analysis/update_data/data/raw/lbs_employment_types.xlsx"),
+lbs_employment_types <- read_excel(here("data/lbs_employment_types.xlsx"),
   sheet = "US_St_Cn_MSA"
 )
 
@@ -276,7 +276,7 @@ counties_occ$occ_other_services <- counties_occ$occ_other_services / counties_oc
 
 ## getting additional data from county rankings that were not aggregated (i.e. obesity and segregration)
 
-County_Health_Rankings_Data <- read_excel(here("Analysis/update_data/data/raw/2020 County Health Rankings Data.xlsx"),
+County_Health_Rankings_Data <- read_excel(here("data/2020 County Health Rankings Data.xlsx"),
   sheet = "Ranked Measure Data", skip = 1
 )
 
@@ -285,7 +285,7 @@ County_Health_Rankings_Data_add_msrs <- County_Health_Rankings_Data %>% select(
   soc_assc_rate = `Social Association Rate`
 )
 
-County_Health_Rankings_Data_add_data <- read_excel(here("Analysis/update_data/data/raw/2020 County Health Rankings Data.xlsx"),
+County_Health_Rankings_Data_add_data <- read_excel(here("data/2020 County Health Rankings Data.xlsx"),
   sheet = "Additional Measure Data", skip = 1
 )
 
@@ -306,7 +306,7 @@ counties_add_data <- merge(counties_occ, County_Health_Rankings_Data_targets, by
 
 ## political party data
 
-countypres_2000_2020 <- read_csv(here("Analysis/update_data/data/raw/countypres_2000-2020.csv"))
+countypres_2000_2020 <- read_csv(here("data/countypres_2000-2020.csv"))
 
 countypres2020 <- countypres_2000_2020 %>% filter(year == 2020)
 

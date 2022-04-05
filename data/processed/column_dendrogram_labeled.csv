@@ -1,0 +1,279 @@
+,x,
+1,Population,Demography/Geography
+2,GDP,Demography/Geography
+3,pct_female_2018,Demography/Geography
+4,pct_black_only_2018,Demography/Geography
+5,pct_american_indian.alaskan_native_only_2018,Demography/Geography
+6,pct_asian_only_2018,Demography/Geography
+7,pct_hawaiian_or_pacific_islander_only_2018,Demography/Geography
+8,pct_some_other_race_alone_2018,Demography/Geography
+9,pct_2_or_more_races_2018,Demography/Geography
+10,CentroidLat,Demography/Geography
+11,CentroidLon,Demography/Geography
+12,NearestAirportDistance,Transit
+13,NearestAirportEnplanements,Transit
+14,NearestAirportOver5000000Distance,Transit
+15,NearestAirportOver5000000Enplanements,Transit
+16,AreaLand,Demography/Geography
+17,urban_rural_status,Demography/Geography
+18,all_stroke_deathrate,Health
+19,Premature.death.raw.value,Health
+20,Adult.smoking.raw.value,Health
+21,Adult.obesity.raw.value,Health
+22,Food.environment.index.raw.value,Health
+23,Access.to.exercise.opportunities.raw.value,Health
+24,Excessive.drinking.raw.value,Health
+25,HIV.prevalence.raw.value,Health
+26,Sexually.transmitted.infections.raw.value,Health
+27,Life.expectancy.raw.value,Health
+28,Food.insecurity.raw.value,Health
+29,prev_2017_all_ages_Alzheimer's Disease/Dementia,Health
+30,prev_2017_all_ages_Arthritis,Health
+31,prev_2017_all_ages_Asthma,Health
+32,prev_2017_all_ages_Cancer,Health
+33,prev_2017_all_ages_Chronic Kidney Disease,Health
+34,prev_2017_all_ages_COPD,Health
+35,prev_2017_all_ages_Depression,Health
+36,prev_2017_all_ages_Diabetes,Health
+37,prev_2017_all_ages_Drug Abuse/Substance Abuse,Health
+38,prev_2017_all_ages_Hyperlipidemia,Health
+39,prev_2017_all_ages_Hepatitis                                 (Chronic Viral B & C),Health
+40,prev_2017_all_ages_Hypertension,Health
+41,prev_2017_all_ages_Ischemic Heart Disease,Health
+42,prev_2017_all_ages_Osteoporosis,Health
+43,prev_2017_all_ages_Schizophrenia/Other Psychotic Disorders,Health
+44,num_hospitals,Health
+45,Uninsured.raw.value,Health
+46,Primary.care.physicians.raw.value,Health
+47,Preventable.hospital.stays.raw.value,Health
+48,Flu.vaccinations.raw.value,Health
+49,Percentage.of.households.with.overcrowding,Health
+50,pct_in_labor_force_employed_2018,Health
+51,percent_park_access,Health
+52,Air.pollution...particulate.matter.raw.value,Air Pollution
+53,Drinking.water.violations.raw.value,Water Contaminants
+54,Fall,Climate Change
+55,Spring,Climate Change
+56,Summer,Climate Change
+57,Winter,Climate Change
+58,Annual,Climate Change
+59,High.school.graduation.raw.value,Education/Employment
+60,Some.college.raw.value,Education/Employment
+61,Unemployment.raw.value,Education/Employment
+62,Income.inequality.raw.value,Vulnerable Populations
+63,Median.household.income.raw.value,Vulnerable Populations
+64,EPL_PCI,Vulnerable Populations
+65,EPL_AGE65,Vulnerable Populations
+66,EPL_AGE17,Vulnerable Populations
+67,EPL_DISABL,Vulnerable Populations
+68,EPL_SNGPNT,Vulnerable Populations
+69,EPL_MINRTY,Vulnerable Populations
+70,EPL_LIMENG,Vulnerable Populations
+71,EPL_MUNIT,Vulnerable Populations
+72,EPL_MOBILE,Vulnerable Populations
+73,EPL_NOVEH,Vulnerable Populations
+74,EPL_GROUPQ,Vulnerable Populations
+75,pct_no_workers_in_household_2018,Vulnerable Populations
+76,pct_poverty_income_ratio_under_100,Vulnerable Populations
+77,pct_poverty_income_ratio_100to200,Vulnerable Populations
+78,Driving.alone.to.work.raw.value,Transit
+79,pct_taking_Public_transportation_2018,Transit
+80,agg_commuting_by_residence_place,Transit
+81,occ_all_federal,Education/Employment
+82,occ_all_state,Education/Employment
+83,occ_all_local,Education/Employment
+84,occ_all_private,Education/Employment
+85,occ_goods_prod,Education/Employment
+86,occ_natural_mining,Education/Employment
+87,occ_construction,Education/Employment
+88,occ_Manufacturing,Education/Employment
+89,occ_servic_prov,Education/Employment
+90,occ_trade_trans_util,Education/Employment
+91,occ_Info,Education/Employment
+92,occ_financial,Education/Employment
+93,occ_prof_business,Education/Employment
+94,occ_educ_health,Education/Employment
+95,occ_leisure,Education/Employment
+96,seg_index,Racism
+97,rep_ratio,Demography/Geography
+98,soc_assc_rate,Health
+99,pct_mental_distress,Health
+100,pct_insufficient_sleep,Health
+101,co,Air Pollution
+102,no2,Air Pollution
+103,o3,Air Pollution
+104,pm10,Air Pollution
+105,pm25,Air Pollution
+106,so2,Air Pollution
+107,ATRAZINE,Pesticides
+108,CARBARYL,Pesticides
+109,CLETHODIM,Pesticides
+110,CYHALOTHRIN-GAMMA,Pesticides
+111,ESFENVALERATE,Pesticides
+112,FLUXAPYROXAD,Pesticides
+113,IMAZETHAPYR,Pesticides
+114,METALAXYL,Pesticides
+115,METRIBUZIN,Pesticides
+116,PROPICONAZOLE,Pesticides
+117,SAFLUFENACIL,Pesticides
+118,TEMBOTRIONE,Pesticides
+119,TRIBENURON METHYL,Pesticides
+120,CAPTAN,Pesticides
+121,DIURON,Pesticides
+122,TRICLOPYR,Pesticides
+123,"2,4-D",Pesticides
+124,AZOXYSTROBIN,Pesticides
+125,CARFENTRAZONE-ETHYL,Pesticides
+126,CLOPYRALID,Pesticides
+127,CYHALOTHRIN-LAMBDA,Pesticides
+128,ETHALFLURALIN,Pesticides
+129,FOMESAFEN,Pesticides
+130,IMIDACLOPRID,Pesticides
+131,METCONAZOLE,Pesticides
+132,NICOSULFURON,Pesticides
+133,PROTHIOCONAZOLE,Pesticides
+134,SETHOXYDIM,Pesticides
+135,THIAMETHOXAM,Pesticides
+136,TRIFLOXYSTROBIN,Pesticides
+137,CHLORSULFURON,Pesticides
+138,FLUROXYPYR,Pesticides
+139,PICLORAM,Pesticides
+140,"2,4-DB",Pesticides
+141,BACILLUS FIRMUS,Pesticides
+142,CHLORANTRANILIPROLE,Pesticides
+143,CLOTHIANIDIN,Pesticides
+144,DICAMBA,Pesticides
+145,FLUDIOXONIL,Pesticides
+146,GLUFOSINATE,Pesticides
+147,MANCOZEB,Pesticides
+148,METOLACHLOR,Pesticides
+149,PARAQUAT,Pesticides
+150,PYRACLOSTROBIN,Pesticides
+151,SIMAZINE,Pesticides
+152,THIENCARBAZONE-METHYL,Pesticides
+153,TRIFLURALIN,Pesticides
+154,DIFENOCONAZOLE,Pesticides
+155,FLUTRIAFOL,Pesticides
+156,MALATHION,Pesticides
+157,ABAMECTIN,Pesticides
+158,BENTAZONE,Pesticides
+159,CHLOROTHALONIL,Pesticides
+160,COPPER HYDROXIDE,Pesticides
+161,DIFLUFENZOPYR,Pesticides
+162,FLUMETSULAM,Pesticides
+163,GLYPHOSATE,Pesticides
+164,MEFENOXAM,Pesticides
+165,PENDIMETHALIN,Pesticides
+166,PYROXASULFONE,Pesticides
+167,SULFENTRAZONE,Pesticides
+168,THIFENSULFURON,Pesticides
+169,ZETA-CYPERMETHRIN,Pesticides
+170,DIMETHENAMID-P,Pesticides
+171,METSULFURON,Pesticides
+172,ACETOCHLOR,Pesticides
+173,BIFENTHRIN,Pesticides
+174,CHLORPYRIFOS,Pesticides
+175,CYFLUTHRIN,Pesticides
+176,DIMETHENAMID & DIMETHENAMID-P,Pesticides
+177,FLUMIOXAZIN,Pesticides
+178,HALOSULFURON,Pesticides
+179,MESOTRIONE,Pesticides
+180,METOLACHLOR-S,Pesticides
+181,PERMETHRIN,Pesticides
+182,RIMSULFURON,Pesticides
+183,TEBUCONAZOLE,Pesticides
+184,THIOPHANATE-METHYL,Pesticides
+185,AMINOPYRALID,Pesticides
+186,DIMETHOATE,Pesticides
+187,SULFUR,Pesticides
+188,avg_tthm_levels,Water Contaminants
+189,avg_PCE_levels,Water Contaminants
+190,avg_atrazine_levels,Water Contaminants
+191,avg_dehp_levels,Water Contaminants
+192,avg_nitrate_levels,Water Contaminants
+193,avg_arsenic_levels,Water Contaminants
+194,BWD,Segregation
+195,AWD,Segregation
+196,HWD,Segregation
+197,NWWD,Segregation
+198,BWI,Segregation
+199,AWI,Segregation
+200,HWI,Segregation
+201,NWWI,Segregation
+202,H,Segregation
+203,female_jail_pop_rate,Incarceration
+204,male_jail_pop_rate,Incarceration
+205,aapi_jail_pop_rate,Incarceration
+206,black_jail_pop_rate,Incarceration
+207,latinx_jail_pop_rate,Incarceration
+208,native_jail_pop_rate,Incarceration
+209,white_jail_pop_rate,Incarceration
+210,total_jail_adm_rate,Incarceration
+211,total_jail_pretrial_rate,Incarceration
+212,white_black_jail_pop_rate,Incarceration
+213,white_aapi_jail_pop_rate,Incarceration
+214,white_latinx_jail_pop_rate,Incarceration
+215,white_native_jail_pop_rate,Incarceration
+216,white_pop_15to64_ratio,Incarceration
+217,total_pop_15to64_ratio,Incarceration
+218,female_pop_15to64_ratio,Incarceration
+219,male_pop_15to64_ratio,Incarceration
+220,aapi_pop_15to64_ratio,Incarceration
+221,black_pop_15to64_ratio,Incarceration
+222,latinx_pop_15to64_ratio,Incarceration
+223,native_pop_15to64_ratio,Incarceration
+224,sr_unemp_bw,Racism
+225,sr_managerial_bw,Racism
+226,blackwhite,Racism
+227,hispblack,Racism
+228,blackhisp,Racism
+229,sr_unemp_hw,Racism
+230,sr_managerial_hw,Racism
+231,otherwhite,Racism
+232,whiteother,Racism
+233,otherhisp,Racism
+234,sr_poverty_bw,Racism
+235,sr_incarceration_bw,Racism
+236,hispwhite,Racism
+237,blackother,Racism
+238,hisphisp,Racism
+239,sr_college_hw,Racism
+240,whitewhite,Racism
+241,otherblack,Racism
+242,whitehisp,Racism
+243,h,Racism
+244,blackblack,Racism
+245,hispother,Racism
+246,sr_poverty_hw,Racism
+247,sr_incarceration_hw,Racism
+248,whiteblack,Racism
+249,otherother,Racism
+250,sum_housing_risk,Racism
+251,total,Racism
+252,age_39,Demography/Geography
+253,age40_59,Demography/Geography
+254,age60_79,Demography/Geography
+255,age80_99,Demography/Geography
+256,weighted_housing,Vulnerable Populations
+257,weighted_poverty,Vulnerable Populations
+258,leadriskscore_raw,Water Contaminants
+259,decile,Water Contaminants
+260,Chromium (hexavalent),Water Contaminants
+261,Perfluorinated chemicals,Water Contaminants
+262,Total trihalomethanes (TTHMs),Water Contaminants
+263,Bromodichloromethane,Water Contaminants
+264,Chloroform,Water Contaminants
+265,Dichloroacetic acid,Water Contaminants
+266,Trichloroacetic acid,Water Contaminants
+267,Radiological contaminants,Water Contaminants
+268,Manganese,Water Contaminants
+269,Dibromochloromethane,Water Contaminants
+270,Tetrachloroethylene (perchloroethylene),Water Contaminants
+271,Haloacetic acids (HAA5),Water Contaminants
+272,Arsenic,Water Contaminants
+273,Atrazine,Water Contaminants
+274,Chlorate,Water Contaminants
+275,Chlorite,Water Contaminants
+276,Bromoform,Water Contaminants
+277,Nitrate,Water Contaminants
+278,Nitrate and nitrite,Water Contaminants
