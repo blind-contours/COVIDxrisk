@@ -162,6 +162,12 @@ temp_lm_models_by_county <- read_excel(RAW_DATA_PATH("temp_lm_models_by_county.x
 counties <- merge(counties,
                   temp_lm_models_by_county, by.x = "FIPS", by.y = "fips")
 
+uv_data <- read_excel(RAW_DATA_PATH("uv-county.xlsx"))
+
+uv_data <- uv_data %>% select(COUNTY_FIPS, `UV_ Wh/m²`)
+
+counties <- merge(counties,
+                  uv_data, by.x = "FIPS", by.y = "COUNTY_FIPS")
 
 ################ Commuting Data ##################
 

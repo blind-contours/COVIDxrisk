@@ -259,7 +259,7 @@ fit_sl_varimp <- function(outcome,label) {
 
   SL_results <- list('fit' = sl_fit, 'var_imp' = var_importance)
 
-  saveRDS(SL_results, here(paste("Models/processed/", outcome, ".RDS", sep = "")))
+  saveRDS(SL_results, here(paste("Models/", outcome, ".RDS", sep = "")))
 
   return(NULL)
 }
