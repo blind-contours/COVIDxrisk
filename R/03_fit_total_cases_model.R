@@ -38,7 +38,7 @@ run_varimp <- function(fit,
   nworkers <- cpus
   doParallel::registerDoParallel(nworkers)
 
-  risk_importance <- foreach(i = X[1:5], .combine = 'rbind', .errorhandling = "pass") %dopar% {
+  risk_importance <- foreach(i = X[1:50], .combine = 'rbind', .errorhandling = "pass") %dopar% {
     scrambled_col <- data.table(sample(unlist(dat[, i, with = FALSE]), nrow(dat)))
     names(scrambled_col) <- i
     scrambled_col_names <- task$add_columns(scrambled_col)
@@ -55,7 +55,7 @@ run_varimp <- function(fit,
   print("Finished LOO-Risk Importance")
 
 
-  quantile_importance <- foreach(i = X[1:5], .combine = 'rbind') %dopar% {
+  quantile_importance <- foreach(i = X[1:50], .combine = 'rbind',  .errorhandling = "pass") %dopar% {
 
     dat <- fit$training_task$data
 
@@ -103,10 +103,6 @@ run_varimp <- function(fit,
   }
 
   print("Finished Quantile Interaction Search")
-
-
-  names(risk_importance) <- X
-  names(quantile_importance) <- X
 
   risk_results <- data.table(risk_importance)
   # X = names(risk_importance), risk_ratio = unlist(risk_importance))
