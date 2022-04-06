@@ -68,6 +68,10 @@ run_varimp <- function(fit,
 
   print("Finished LOO-Risk Importance")
 
+  ##############################################################################
+  ######################## QUANTILE INTERACTIONS ###############################
+  ##############################################################################
+
   remaining <- X
   quantile_importance_list <- list()
   iter <- 1
@@ -130,10 +134,11 @@ run_varimp <- function(fit,
 
   print("Finished Quantile Interaction Search")
 
-  risk_results <- data.table(risk_importance)
+  risk_results <- data.frame(risk_importance)
   # X = names(risk_importance), risk_ratio = unlist(risk_importance))
   colnames(risk_results) <- c("X", "risk_ratio")
-  risk_results_ordered <- risk_results[order(-risk_results$risk_ratio)]
+  risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
+  risk_results_ordered <- risk_results[order(-risk_results$risk_ratio),]
 
   quantile_results <- data.table(quantile_importance)
   colnames(quantile_results) <- c("X", "risk_difference")
@@ -145,44 +150,64 @@ run_varimp <- function(fit,
 
   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
 
-  risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
   merged_results$risk_ratio <- as.numeric(merged_results$risk_ratio)
 
-  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97, na.rm = TRUE))$X, m = m)
+  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
 
-  permuted_importance <- foreach(i = 1:dim(variable_combinations)[2], .combine = 'rbind') %dopar% {
-    target_vars <- variable_combinations[,i]
-    ## compute the additive risk for this set of variables
-    additives <- risk_importance[target_vars]
-    additive_risk <- sum(unlist(additives) - 1) + 1
+  ##############################################################################
+  ######################## JOINT PERM INTERACTIONS #############################
+  ##############################################################################
 
-    ## calculate the permuted risk for this set of variables
-    scrambled_rows <- dat[sample(nrow(dat)), ]
-    scrambled_rows_selection <- scrambled_rows %>% dplyr::select(!!target_vars)
-    scrambled_col_names <- task$add_columns(scrambled_rows_selection)
-    scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
-    scrambled_sl_preds <- fit$predict_fold(scrambled_col_task,
-                                           fold_number = "validation")
+  joint_perm_importance_list <- list()
+  iter <- 1
+  remaining <- as.vector(apply(variable_combinations, 2, paste, collapse = " & "))
 
-    risk_scrambled <- mean(loss(scrambled_sl_preds, Y))
-    varimp_metric <- risk_scrambled/risk
+  while (length(remaining) > 0) {
 
-    target_vars <- data_dictionary$`Nice Label`[match(target_vars, data_dictionary$`Variable Name`)]
+    permuted_importance <- foreach(i = 1:length(remaining), .combine = 'rbind') %dopar% {
+      target_vars <- remaining[i]
+      target_vars <- unlist(str_split(target_vars, " & "))
 
-    result <- cbind(paste(target_vars, collapse = " & "), varimp_metric, additive_risk)
-    result
+      ## compute the additive risk for this set of variables
+      additives <- risk_results %>% filter(X %in% target_vars) %>% select(risk_ratio)
+      additive_risk <- sum(unlist(additives) - 1) + 1
+
+      ## calculate the permuted risk for this set of variables
+      scrambled_rows <- dat[sample(nrow(dat)), ]
+      scrambled_rows_selection <- scrambled_rows %>% dplyr::select(!!target_vars)
+      scrambled_col_names <- task$add_columns(scrambled_rows_selection)
+      scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
+      scrambled_sl_preds <- fit$predict_fold(scrambled_col_task,
+                                             fold_number = "validation")
+
+      risk_scrambled <- mean(loss(scrambled_sl_preds, Y))
+      varimp_metric <- risk_scrambled/risk
+
+      target_vars_nice <- data_dictionary$`Nice Label`[match(target_vars, data_dictionary$`Variable Name`)]
+
+      result <- cbind(paste(target_vars_nice, collapse = " & "), varimp_metric, additive_risk, remaining[[i]])
+      result
+    }
+
+    joint_perm_importance_list[[iter]] <- permuted_importance
+    remaining <- remaining[remaining %notin% permuted_importance[,4]]
+    print(remaining)
+    iter <- iter + 1
+    print(iter)
   }
+
+  permuted_importance <- do.call(rbind, joint_perm_importance_list)
 
   print("Finished Joint Permutation")
 
-  permuted_importance <- as.data.frame(permuted_importance)
+  permuted_importance <- as.data.frame(permuted_importance[,1:3])
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
-  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95, na.rm = TRUE ))
+  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
   test <- melt(test, id.vars=c("Variable Combo", "diff"))
   test$value <- round(as.numeric(test$value),3)
 
@@ -202,7 +227,7 @@ run_varimp <- function(fit,
     xlab("County Feature")
 
   total <- sum(dat[[outcome]] * dat$Population)
-  merged_results$risk_difference <- merged_results$risk_difference * total
+  merged_results$risk_difference <- as.numeric(merged_results$risk_difference) * total
 
   quantile_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
