@@ -1,7 +1,7 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 20
+cpus <- 16
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q){
 
@@ -119,7 +119,7 @@ run_varimp <- function(fit,
 
   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
 
-  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
+  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97, na.rm = TRUE))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
