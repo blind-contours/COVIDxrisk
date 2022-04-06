@@ -38,69 +38,95 @@ run_varimp <- function(fit,
   nworkers <- cpus
   doParallel::registerDoParallel(nworkers)
 
-  risk_importance <- foreach(i = X[1:50], .combine = 'rbind', .errorhandling = "pass") %dopar% {
-    scrambled_col <- data.table(sample(unlist(dat[, i, with = FALSE]), nrow(dat)))
-    names(scrambled_col) <- i
-    scrambled_col_names <- task$add_columns(scrambled_col)
-    scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
-    scrambled_sl_preds <- fit$predict_fold(scrambled_col_task, fold_number = "validation")
-    no_i_risk <- mean(loss(scrambled_sl_preds, Y))
-    varimp_metric <- no_i_risk/risk
+  remaining <- X
+  risk_importance_list <- list()
+  iter <- 1
 
-    result <- cbind(i, varimp_metric)
+  while (length(remaining) > 0) {
+    risk_importance <- foreach(i = remaining, .combine = 'rbind', .errorhandling = "pass") %dopar% {
 
-    return(result)
+      scrambled_col <- data.table(sample(unlist(dat[, i, with = FALSE]), nrow(dat)))
+      names(scrambled_col) <- i
+      scrambled_col_names <- task$add_columns(scrambled_col)
+      scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
+      scrambled_sl_preds <- fit$predict_fold(scrambled_col_task, fold_number = "validation")
+      no_i_risk <- mean(loss(scrambled_sl_preds, Y))
+      varimp_metric <- no_i_risk/risk
+
+      result <- cbind(i, varimp_metric)
+
+      return(result)
+    }
+    risk_importance_list[[iter]] <- risk_importance
+    remaining <- remaining[remaining %notin% risk_importance[,1]]
+    print(remaining)
+    iter <- iter + 1
+    print(iter)
   }
+
+  risk_importance <- do.call(rbind, risk_importance_list)
 
   print("Finished LOO-Risk Importance")
 
+  remaining <- X
+  quantile_importance_list <- list()
+  iter <- 1
 
-  quantile_importance <- foreach(i = X[1:50], .combine = 'rbind',  .errorhandling = "pass") %dopar% {
+  while (length(remaining) > 0) {
+    quantile_importance <- foreach(i = remaining, .combine = 'rbind',  .errorhandling = "pass") %dopar% {
 
-    dat <- fit$training_task$data
+      dat <- fit$training_task$data
 
-    target_25_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.25)
-    target_75_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.25)
-    target_25_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.75)
-    target_75_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.75)
+      target_25_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.25)
+      target_75_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.25)
+      target_25_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.75)
+      target_75_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.75)
 
-    task_target_25_nontarget_25 <- make_sl3_Task(
-      data = target_25_nontarget_25,
-      covariates = covars,
-      outcome = outcome)
+      task_target_25_nontarget_25 <- make_sl3_Task(
+        data = target_25_nontarget_25,
+        covariates = covars,
+        outcome = outcome)
 
-    task_target_75_nontarget_25 <- make_sl3_Task(
-      data = target_75_nontarget_25,
-      covariates = covars,
-      outcome = outcome)
+      task_target_75_nontarget_25 <- make_sl3_Task(
+        data = target_75_nontarget_25,
+        covariates = covars,
+        outcome = outcome)
 
-    task_target_25_nontarget_75 <- make_sl3_Task(
-      data = target_25_nontarget_75,
-      covariates = covars,
-      outcome = outcome)
+      task_target_25_nontarget_75 <- make_sl3_Task(
+        data = target_25_nontarget_75,
+        covariates = covars,
+        outcome = outcome)
 
-    task_target_75_nontarget_75 <- make_sl3_Task(
-      data = target_75_nontarget_75,
-      covariates = covars,
-      outcome = outcome)
+      task_target_75_nontarget_75 <- make_sl3_Task(
+        data = target_75_nontarget_75,
+        covariates = covars,
+        outcome = outcome)
 
 
-    y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "validation")
-    y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "validation")
+      y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "validation")
+      y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "validation")
 
-    y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "validation")
-    y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "validation")
+      y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "validation")
+      y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "validation")
 
-    delta_rest_high <- mean(y_75_75_predictions - y_25_75_predictions)
-    delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
+      delta_rest_high <- mean(y_75_75_predictions - y_25_75_predictions)
+      delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
 
-    varimp_metric <- delta_rest_high - delta_rest_low
+      varimp_metric <- delta_rest_high - delta_rest_low
 
-    result <- cbind(i, varimp_metric)
+      result <- cbind(i, varimp_metric)
 
-    return(result)
+      return(result)
+    }
 
+    quantile_importance_list[[iter]] <- quantile_importance
+    remaining <- remaining[remaining %notin% quantile_importance[,1]]
+    print(remaining)
+    iter <- iter + 1
+    print(iter)
   }
+
+  quantile_importance <- do.call(rbind, quantile_importance_list)
 
   print("Finished Quantile Interaction Search")
 
@@ -118,6 +144,9 @@ run_varimp <- function(fit,
   risk_results <- subset(risk_results, risk_results$X != "CentroidLon" & risk_results$X != "CentroidLat" & risk_results$X != "Latitude"  & risk_results$X != "Longitude")
 
   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
+
+  risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
+  merged_results$risk_ratio <- as.numeric(merged_results$risk_ratio)
 
   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97, na.rm = TRUE))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
@@ -153,7 +182,7 @@ run_varimp <- function(fit,
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
-  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
+  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95, na.rm = TRUE ))
   test <- melt(test, id.vars=c("Variable Combo", "diff"))
   test$value <- round(as.numeric(test$value),3)
 
