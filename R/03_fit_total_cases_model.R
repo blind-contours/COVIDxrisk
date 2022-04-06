@@ -38,22 +38,24 @@ run_varimp <- function(fit,
   nworkers <- cpus
   doParallel::registerDoParallel(nworkers)
 
-  risk_importance <- foreach(i = X, .combine = 'c', .errorhandling = "pass") %dopar% {
+  risk_importance <- foreach(i = X[1:5], .combine = 'rbind', .errorhandling = "pass") %dopar% {
     scrambled_col <- data.table(sample(unlist(dat[, i, with = FALSE]), nrow(dat)))
     names(scrambled_col) <- i
     scrambled_col_names <- task$add_columns(scrambled_col)
     scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
     scrambled_sl_preds <- fit$predict_fold(scrambled_col_task, fold_number = "validation")
-    #   i_removed_learner <- fit$reparameterize(list(covariates = setdiff(X, i)))
-    #   i_removed_fit <- i_removed_learner$train(task)
-    #   i_removed_pred <- i_removed_fit$predict_fold(task, fold_number = "validation")
     no_i_risk <- mean(loss(scrambled_sl_preds, Y))
     varimp_metric <- no_i_risk/risk
-    #
-    return(varimp_metric)
+
+    result <- cbind(i, varimp_metric)
+
+    return(result)
   }
 
-  quantile_importance <- foreach(i = X, .combine = 'c') %dopar% {
+  print("Finished LOO-Risk Importance")
+
+
+  quantile_importance <- foreach(i = X[1:5], .combine = 'rbind') %dopar% {
 
     dat <- fit$training_task$data
 
@@ -93,20 +95,29 @@ run_varimp <- function(fit,
     delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
 
     varimp_metric <- delta_rest_high - delta_rest_low
-    return(varimp_metric)
+
+    result <- cbind(i, varimp_metric)
+
+    return(result)
 
   }
+
+  print("Finished Quantile Interaction Search")
+
 
   names(risk_importance) <- X
   names(quantile_importance) <- X
 
-  risk_results <- data.table(X = names(risk_importance), risk_ratio = unlist(risk_importance))
+  risk_results <- data.table(risk_importance)
+  # X = names(risk_importance), risk_ratio = unlist(risk_importance))
+  colnames(risk_results) <- c("X", "risk_ratio")
   risk_results_ordered <- risk_results[order(-risk_results$risk_ratio)]
 
-  quantile_results <- data.table(X = names(quantile_importance), risk_difference = unlist(quantile_importance))
+  quantile_results <- data.table(quantile_importance)
+  colnames(quantile_results) <- c("X", "risk_difference")
   quantile_results_ordered <- quantile_results[order(-quantile_results$risk_difference)]
 
-  merged_results <- merge(risk_results_ordered, quantile_results_ordered, by= "X")
+  merged_results <- merge(risk_results_ordered, quantile_results_ordered, by= "X", all.x = TRUE, all.y = TRUE)
   merged_results <- subset(merged_results, merged_results$X != "CentroidLon" & merged_results$X != "CentroidLat" & merged_results$X != "Latitude"  & merged_results$X != "Longitude")
   risk_results <- subset(risk_results, risk_results$X != "CentroidLon" & risk_results$X != "CentroidLat" & risk_results$X != "Latitude"  & risk_results$X != "Longitude")
 
@@ -139,6 +150,8 @@ run_varimp <- function(fit,
     result <- cbind(paste(target_vars, collapse = " & "), varimp_metric, additive_risk)
     result
   }
+
+  print("Finished Joint Permutation")
 
   permuted_importance <- as.data.frame(permuted_importance)
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)

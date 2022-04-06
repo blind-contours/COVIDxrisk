@@ -48,32 +48,32 @@ Lrnr_david_glmnet_pois <- R6Class(
   inherit = Lrnr_base, portable = TRUE, class = TRUE,
   public = list(
     initialize = function(lambda = NULL, type.measure = "deviance", nfolds = 10,
-                          alpha = 1, nlambda = 100, use_min = TRUE, ...) {
+                          alpha = 1, nlambda = 100,  ...) {
       super$initialize(params = args_to_list(), ...)
     }
   ),
-  
+
   private = list(
     .properties = c("continuous", "binomial", "categorical", "weights"),
-    
+
     .train = function(task) {
       args <- self$params
       outcome_type <- self$get_outcome_type(task)
-      
+
       args$family <- "poisson"
-    
+
       # specify data
       args$x <- as.matrix(task$X)
       args$y <- outcome_type$format(task$Y)
-      
+
       if (task$has_node("weights")) {
         args$weights <- task$weights
       }
-      
+
       if (task$has_node("offset")) {
         args$offset <- task$offset
       }
-      
+
       fit_object <- sl3:::call_with_args(
         glmnet::cv.glmnet, args,
         names(formals(glmnet::glmnet))
@@ -81,7 +81,7 @@ Lrnr_david_glmnet_pois <- R6Class(
       fit_object$glmnet.fit$call <- NULL
       return(fit_object)
     },
-    
+
     .predict = function(task) {
       outcome_type <- private$.training_outcome_type
       if (self$params$use_min) {
@@ -94,7 +94,7 @@ Lrnr_david_glmnet_pois <- R6Class(
         newx = as.matrix(task$X), type = "response",
         s = lambda
       )
-      
+
       if (outcome_type$type == "categorical") {
         cat_names <- dimnames(predictions)[[2]]
         # predictions is a 3-dim matrix, convert to 2-dim matrix

@@ -9,22 +9,22 @@ create_superlearner <- function(){
   ## set up baseline mean to make sure our other learners are working better than mean
   mean_lrnr <- Lrnr_mean$new()
   ## standard poisson GLM I wrote
-  Lrnr_david_pois <- make_learner(Lrnr_david_pois)
+  # Lrnr_david_pois <- make_learner(Lrnr_david_pois)
 
   ## custom xgboost for poisson outcome with varying parameters (should try grid as well)
-  Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
-  Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
-  Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
+  # Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
+  # Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
+  # Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
 
   ## custom ridge and lass from glmnet poisson
-  ridge_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 0, nfolds = 10)
-  lasso_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 1, nfolds = 10)
+  # ridge_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 0, nfolds = 10)
+  # lasso_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 1, nfolds = 10)
 
   ## custom gbm and glmnet for poisson with varying parameters
-  Lrnr_david_gbm_pois <- make_learner(Lrnr_david_gbm_pois)
-  Lrnr_david_glmnet_pois_25 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.25, nfolds = 3)
-  Lrnr_david_glmnet_pois_50 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.50, nfolds = 3)
-  Lrnr_david_glmnet_pois_75 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.75, nfolds = 3)
+  # Lrnr_david_gbm_pois <- make_learner(Lrnr_david_gbm_pois)
+  # Lrnr_david_glmnet_pois_25 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.25, nfolds = 3)
+  # Lrnr_david_glmnet_pois_50 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.50, nfolds = 3)
+  # Lrnr_david_glmnet_pois_75 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.75, nfolds = 3)
 
   lrnr_ranger100 <- make_learner(Lrnr_ranger, num.trees = 100)
   lrnr_gam <- make_learner(Lrnr_gam)
@@ -33,16 +33,16 @@ create_superlearner <- function(){
   ## create the stack of learners
 
   ## custom xgboost for poisson outcome with varying parameters (should try grid as well)
-  Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
-  Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
-  Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
+  # Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
+  # Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
+  # Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
 
   # choose base learners
   lrnr_glm <- make_learner(Lrnr_glm)
 
   lrnr_ranger10 <- make_learner(Lrnr_ranger, num.trees = 10)
   lrnr_ranger50 <- make_learner(Lrnr_ranger, num.trees = 50)
-  lrnr_hal_simple <- make_learner(Lrnr_hal9001, max_degree = 2, n_folds = 2)
+  # lrnr_hal_simple <- make_learner(Lrnr_hal9001, max_degree = 2, n_folds = 2)
   lrnr_lasso <- make_learner(Lrnr_glmnet) # alpha default is 1
   lrnr_ridge <- make_learner(Lrnr_glmnet, alpha = 0)
   lrnr_elasticnet <- make_learner(Lrnr_glmnet, alpha = .5)
@@ -82,21 +82,7 @@ create_superlearner <- function(){
   stack <- make_learner(
     Stack,
     mean_lrnr,
-    Lrnr_david_pois,
-    Lrnr_david_xgboost_pois_850,
-    Lrnr_david_xgboost_pois_5100,
-    Lrnr_david_xgboost_pois_10200,
-    ridge_lrnr_pois,
-    lasso_lrnr_pois,
-    Lrnr_david_gbm_pois,
-    Lrnr_david_glmnet_pois_25,
-    Lrnr_david_glmnet_pois_50,
-    Lrnr_david_glmnet_pois_75,
-    lrnr_gam,
     lrnr_polspline,
-    Lrnr_david_xgboost_pois_850,
-    Lrnr_david_xgboost_pois_5100,
-    Lrnr_david_xgboost_pois_10200,
     lrnr_glm,
     lrnr_ranger10,
     lrnr_ranger50,

@@ -44,14 +44,13 @@ run_varimp <- function(fit,
     scrambled_col_names <- task$add_columns(scrambled_col)
     scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
     scrambled_sl_preds <- fit$predict_fold(scrambled_col_task, fold_number = "validation")
-    #   i_removed_learner <- fit$reparameterize(list(covariates = setdiff(X, i)))
-    #   i_removed_fit <- i_removed_learner$train(task)
-    #   i_removed_pred <- i_removed_fit$predict_fold(task, fold_number = "validation")
     no_i_risk <- mean(loss(scrambled_sl_preds, Y))
     varimp_metric <- no_i_risk/risk
     #
     return(varimp_metric)
   }
+
+  print("Finished LOO-Risk Importance")
 
   quantile_importance <- foreach(i = X, .combine = 'c') %dopar% {
 
@@ -97,6 +96,9 @@ run_varimp <- function(fit,
 
   }
 
+  print("Finished Quantile Interaction Search")
+
+
   names(risk_importance) <- X
   names(quantile_importance) <- X
 
@@ -139,6 +141,8 @@ run_varimp <- function(fit,
     result <- cbind(paste(target_vars, collapse = " & "), varimp_metric, additive_risk)
     result
   }
+
+  print("Finished Joint Permutation")
 
   permuted_importance <- as.data.frame(permuted_importance)
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
@@ -239,6 +243,9 @@ fit_sl_varimp <- function(outcome,label) {
   discrete_sl <- discrete_sl$value()
   ## fit the sl3 object
   sl_fit <- discrete_sl$train(task)
+
+  print("Finished Fitting Models")
+
 
   ## get variable importance from the sl3 object
   var_importance <- run_varimp(fit = sl_fit,
