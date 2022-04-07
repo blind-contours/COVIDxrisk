@@ -132,6 +132,15 @@ for (i in 1:3) {
   counties <- cbind(counties, selected_dat[match(FIPS, chronic_fips), ])
 }
 
+COPD <- read.csv(RAW_DATA_PATH("COPD.csv"))
+
+COPD <- COPD %>%
+  group_by(CountyFIPS) %>%
+  summarize(COPD_mean = mean(Value, na.rm=TRUE))
+
+counties <- merge(counties,
+                  COPD, by.x = "FIPS", by.y = "CountyFIPS", all.x = TRUE)
+
 ################ County SVI ##################
 
 county_SVI <- read.csv(RAW_DATA_PATH("SVI2018_US_COUNTY.csv"))
@@ -168,6 +177,15 @@ uv_data <- uv_data %>% select(COUNTY_FIPS, `UV_ Wh/m²`)
 
 counties <- merge(counties,
                   uv_data, by.x = "FIPS", by.y = "COUNTY_FIPS")
+
+excessive_heat <- read.csv(RAW_DATA_PATH("Excessive_Heat.csv"))
+
+excessive_heat <- excessive_heat %>%
+  group_by(CountyFIPS) %>%
+  summarize(ex_heat_count_mean = mean(Value, na.rm=TRUE))
+
+counties <- merge(counties,
+                  excessive_heat, by.x = "FIPS", by.y = "CountyFIPS")
 
 ################ Commuting Data ##################
 
@@ -392,7 +410,18 @@ lead_risk_score <- lead_risk_score %>%
   group_by(fips) %>%
   summarise(across(-(c(name, id)), mean, na.rm = TRUE))
 
+built_housing <- read_csv(RAW_DATA_PATH("housing_built_year.csv"))
 
+built_housing_wide <- built_housing %>%
+  pivot_wider(names_from = `Year Built`, values_from = Value)
+
+built_housing_wide <- built_housing_wide %>%
+  group_by(CountyFIPS) %>%
+  summarize(mean_before1950 = mean(`Before 1950` , na.rm = TRUE),
+            mean_between1950_75 = mean(`Between 1950 and 1979` , na.rm = TRUE),
+            mean_before1980 = mean(`Before 1980` , na.rm = TRUE))
+
+covid_data_unprocessed <- merge(covid_data_unprocessed, built_housing_wide, by.x = "FIPS", by.y = "CountyFIPS", all.x = TRUE)
 ################ Water Contaminant Exposure Variable ##################
 
 summarized_contaminants_raw <- read_csv(RAW_DATA_PATH("summarized_contaminants.csv"))
@@ -454,7 +483,6 @@ for (df in chemical_dataFrames){
 
 avg_names <- paste("avg", gsub(".csv", "", file_names), sep="_")
 covid_data_unprocessed[avg_names] <- na_interpolation(covid_data_unprocessed[avg_names], option = "linear")
-
 
 
 ################ INCARCERATION VARIABLES BY ETHNICITY ##################
