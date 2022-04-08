@@ -320,6 +320,5 @@ fit_sl_varimp <- function(outcome,label) {
   return(NULL)
 }
 
-
 Cases1year <- fit_sl_varimp(outcome = "Casesat1year", label = "COVID-19 Cases at 1 Year")
 

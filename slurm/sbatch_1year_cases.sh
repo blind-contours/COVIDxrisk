@@ -1,6 +1,6 @@
 #!/bin/bash
 # Job name:
-#SBATCH --job-name=covid_deaths_1year_modeling
+#SBATCH --job-name=covid_cases_1year_modeling
 #
 # Partition:
 #SBATCH --partition=savio2
@@ -21,4 +21,4 @@ OMP_NUM_THREADS=1
 ### for foreach+doSNOW ###
 cd /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
  
-R CMD BATCH --no-save R/03_fit_year1_deaths_model.R logs/deaths_1year_modeling.Rout
+R CMD BATCH --no-save R/03_fit_year1_cases_model.R logs/cases_1year_modeling.Rout
