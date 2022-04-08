@@ -1,0 +1,1016 @@
+
+R version 4.0.3 (2020-10-10) -- "Bunny-Wunnies Freak Out"
+Copyright (C) 2020 The R Foundation for Statistical Computing
+Platform: x86_64-pc-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> library(here)
+here() starts at /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
+> source(here("R/util.R"))
+Loading required package: caret
+Loading required package: ggplot2
+Loading required package: lattice
+Loading required package: rvest
+Loading required package: dplyr
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Loading required package: origami
+origami v1.0.5: Generalized Framework for Cross-Validation
+Loading required package: knitr
+Loading required package: R6
+Loading required package: gam
+Loading required package: splines
+Loading required package: foreach
+Loaded gam 1.20.1
+
+Loading required package: gbm
+Loaded gbm 2.1.8
+Loading required package: remotes
+Loading required package: tidyverse
+-- Attaching packages --------------------------------------- tidyverse 1.3.1 --
+v tibble  3.1.6     v purrr   0.3.4
+v tidyr   1.2.0     v stringr 1.4.0
+v readr   2.0.1     v forcats 0.5.1
+-- Conflicts ------------------------------------------ tidyverse_conflicts() --
+x purrr::accumulate()     masks foreach::accumulate()
+x dplyr::filter()         masks stats::filter()
+x readr::guess_encoding() masks rvest::guess_encoding()
+x dplyr::lag()            masks stats::lag()
+x purrr::lift()           masks caret::lift()
+x purrr::when()           masks foreach::when()
+Loading required package: readxl
+Loading required package: pROC
+Type 'citation("pROC")' for a citation.
+
+Attaching package: 'pROC'
+
+The following objects are masked from 'package:stats':
+
+    cov, smooth, var
+
+Loading required package: imputeTS
+Registered S3 method overwritten by 'quantmod':
+  method            from
+  as.zoo.data.frame zoo 
+Loading required package: data.table
+
+Attaching package: 'data.table'
+
+The following object is masked from 'package:purrr':
+
+    transpose
+
+The following objects are masked from 'package:dplyr':
+
+    between, first, last
+
+Loading required package: xgboost
+
+Attaching package: 'xgboost'
+
+The following object is masked from 'package:dplyr':
+
+    slice
+
+Loading required package: zeallot
+Loading required package: pheatmap
+Loading required package: ggfortify
+Registered S3 methods overwritten by 'ggfortify':
+  method                 from    
+  autoplot.Arima         forecast
+  autoplot.acf           forecast
+  autoplot.ar            forecast
+  autoplot.bats          forecast
+  autoplot.decomposed.ts forecast
+  autoplot.ets           forecast
+  autoplot.forecast      forecast
+  autoplot.stl           forecast
+  autoplot.ts            forecast
+  fitted.ar              forecast
+  fortify.ts             forecast
+  residuals.ar           forecast
+Loading required package: gtools
+
+Attaching package: 'gtools'
+
+The following object is masked from 'package:imputeTS':
+
+    na.replace
+
+Loading required package: cowplot
+Loading required package: future
+
+Attaching package: 'future'
+
+The following objects are masked from 'package:zeallot':
+
+    %->%, %<-%
+
+The following object is masked from 'package:caret':
+
+    cluster
+
+Loading required package: parallel
+Loading required package: doParallel
+Loading required package: iterators
+Loading required package: sl3
+> plan(multisession)
+> cpus <- 16
+> 
+> set_quantiles <- function(data, X, target, target_q, nontarget_q){
++ 
++   for (i in X) {
++     if (i == target) {
++       data[[i]] <- quantile(data[[i]], target_q)
++     }
++     else{
++       data[[i]] <- quantile(data[[i]], nontarget_q)
++     }
++   }
++   return(data)
++ 
++ }
+> 
+> run_varimp <- function(fit,
++                        loss,
++                        covars,
++                        outcome,
++                        data = covid_data_processed,
++                        data_dictionary = Data_Dictionary,
++                        label = label,
++                        thresh = 1.02,
++                        m = 3)
++ {
++ 
++   task <- fit$training_task
++   dat <- task$data
++   X <- task$nodes$covariates
++   Y <- task$Y
++   preds <- fit$predict_fold(task, fold_number = "validation")
++   risk <- mean(loss(preds, Y))
++ 
++   nworkers <- cpus
++   doParallel::registerDoParallel(nworkers)
++ 
++   remaining <- X
++   risk_importance_list <- list()
++   iter <- 1
++ 
++   while (length(remaining) > 0) {
++     risk_importance <- foreach(i = remaining, .combine = 'rbind', .errorhandling = "pass") %dopar% {
++ 
++       scrambled_col <- data.table(sample(unlist(dat[, i, with = FALSE]), nrow(dat)))
++       names(scrambled_col) <- i
++       scrambled_col_names <- task$add_columns(scrambled_col)
++       scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
++       scrambled_sl_preds <- fit$predict_fold(scrambled_col_task, fold_number = "validation")
++       no_i_risk <- mean(loss(scrambled_sl_preds, Y))
++       varimp_metric <- no_i_risk/risk
++ 
++       result <- cbind(i, varimp_metric)
++ 
++       return(result)
++     }
++     risk_importance_list[[iter]] <- risk_importance
++     remaining <- remaining[remaining %notin% risk_importance[,1]]
++     print(remaining)
++     iter <- iter + 1
++     print(iter)
++   }
++ 
++   risk_importance <- do.call(rbind, risk_importance_list)
++ 
++   print("Finished LOO-Risk Importance")
++ 
++   ##############################################################################
++   ######################## QUANTILE INTERACTIONS ###############################
++   ##############################################################################
++ 
++   remaining <- X
++   quantile_importance_list <- list()
++   iter <- 1
++ 
++   while (length(remaining) > 0) {
++     quantile_importance <- foreach(i = remaining, .combine = 'rbind',  .errorhandling = "pass") %dopar% {
++ 
++       dat <- fit$training_task$data
++ 
++       target_25_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.25)
++       target_75_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.25)
++       target_25_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.75)
++       target_75_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.75)
++ 
++       task_target_25_nontarget_25 <- make_sl3_Task(
++         data = target_25_nontarget_25,
++         covariates = covars,
++         outcome = outcome)
++ 
++       task_target_75_nontarget_25 <- make_sl3_Task(
++         data = target_75_nontarget_25,
++         covariates = covars,
++         outcome = outcome)
++ 
++       task_target_25_nontarget_75 <- make_sl3_Task(
++         data = target_25_nontarget_75,
++         covariates = covars,
++         outcome = outcome)
++ 
++       task_target_75_nontarget_75 <- make_sl3_Task(
++         data = target_75_nontarget_75,
++         covariates = covars,
++         outcome = outcome)
++ 
++ 
++       y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "validation")
++       y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "validation")
++ 
++       y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "validation")
++       y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "validation")
++ 
++       delta_rest_high <- mean(y_75_75_predictions - y_25_75_predictions)
++       delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
++ 
++       varimp_metric <- delta_rest_high - delta_rest_low
++ 
++       result <- cbind(i, varimp_metric)
++ 
++       return(result)
++     }
++ 
++     quantile_importance_list[[iter]] <- quantile_importance
++     remaining <- remaining[remaining %notin% quantile_importance[,1]]
++     print(remaining)
++     iter <- iter + 1
++     print(iter)
++   }
++ 
++   quantile_importance <- do.call(rbind, quantile_importance_list)
++ 
++   print("Finished Quantile Interaction Search")
++ 
++   risk_results <- data.frame(risk_importance)
++   # X = names(risk_importance), risk_ratio = unlist(risk_importance))
++   colnames(risk_results) <- c("X", "risk_ratio")
++   risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
++   risk_results_ordered <- risk_results[order(-risk_results$risk_ratio),]
++ 
++   quantile_results <- data.table(quantile_importance)
++   colnames(quantile_results) <- c("X", "risk_difference")
++   quantile_results_ordered <- quantile_results[order(-quantile_results$risk_difference)]
++ 
++   merged_results <- merge(risk_results_ordered, quantile_results_ordered, by= "X", all.x = TRUE, all.y = TRUE)
++   merged_results <- subset(merged_results, merged_results$X != "CentroidLon" & merged_results$X != "CentroidLat" & merged_results$X != "Latitude"  & merged_results$X != "Longitude")
++   risk_results <- subset(risk_results, risk_results$X != "CentroidLon" & risk_results$X != "CentroidLat" & risk_results$X != "Latitude"  & risk_results$X != "Longitude")
++ 
++   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
++ 
++   merged_results$risk_ratio <- as.numeric(merged_results$risk_ratio)
++ 
++   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
++   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
++   variable_combinations <- as.data.frame(variable_combinations)
++   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
++ 
++   ##############################################################################
++   ######################## JOINT PERM INTERACTIONS #############################
++   ##############################################################################
++ 
++   joint_perm_importance_list <- list()
++   iter <- 1
++   remaining <- as.vector(apply(variable_combinations, 2, paste, collapse = " & "))
++ 
++   while (length(remaining) > 0) {
++ 
++     permuted_importance <- foreach(i = 1:length(remaining), .combine = 'rbind') %dopar% {
++       target_vars <- remaining[i]
++       target_vars <- unlist(str_split(target_vars, " & "))
++ 
++       ## compute the additive risk for this set of variables
++       additives <- risk_results %>% filter(X %in% target_vars) %>% select(risk_ratio)
++       additive_risk <- sum(unlist(additives) - 1) + 1
++ 
++       ## calculate the permuted risk for this set of variables
++       scrambled_rows <- dat[sample(nrow(dat)), ]
++       scrambled_rows_selection <- scrambled_rows %>% dplyr::select(!!target_vars)
++       scrambled_col_names <- task$add_columns(scrambled_rows_selection)
++       scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
++       scrambled_sl_preds <- fit$predict_fold(scrambled_col_task,
++                                              fold_number = "validation")
++ 
++       risk_scrambled <- mean(loss(scrambled_sl_preds, Y))
++       varimp_metric <- risk_scrambled/risk
++ 
++       target_vars_nice <- data_dictionary$`Nice Label`[match(target_vars, data_dictionary$`Variable Name`)]
++ 
++       result <- cbind(paste(target_vars_nice, collapse = " & "), varimp_metric, additive_risk, remaining[[i]])
++       result
++     }
++ 
++     joint_perm_importance_list[[iter]] <- permuted_importance
++     remaining <- remaining[remaining %notin% permuted_importance[,4]]
++     print(remaining)
++     iter <- iter + 1
++     print(iter)
++   }
++ 
++   permuted_importance <- do.call(rbind, joint_perm_importance_list)
++ 
++   print("Finished Joint Permutation")
++ 
++   permuted_importance <- as.data.frame(permuted_importance[,1:3])
++   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
++   colnames(permuted_importance)[1] <- "Variable Combo"
++ 
++   test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
++   test <- melt(test, id.vars=c("Variable Combo", "diff"))
++   test$value <- round(as.numeric(test$value),3)
++ 
++   test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
++   colnames(test)[3] <- "Type"
++ 
++   risk_plot <- merged_results %>%
++     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
++     filter(risk_ratio > 1.01)  %>%
++     mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
++     ggplot( aes(x=name, y=risk_ratio)) +
++     geom_segment( aes(xend=name, yend=1)) +
++     geom_point( size=4, color="orange") +
++     coord_flip() +
++     theme_bw() +
++     ylab("Model Risk Ratio") +
++     xlab("County Feature")
++ 
++   total <- sum(dat[[outcome]] * dat$Population)
++   merged_results$risk_difference <- as.numeric(merged_results$risk_difference) * total
++ 
++   quantile_plot <- merged_results %>%
++     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
++     filter(risk_ratio > 1.01)  %>%
++     mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
++     ggplot( aes(x=name, y=risk_difference)) +
++     geom_segment( aes(xend=name, yend=0)) +
++     geom_point( size=4, color="blue") +
++     coord_flip() +
++     theme_bw() +
++     ylab("(75 - 25 | 75 ) − (75 - 25 | 25 )") +
++     xlab("")
++ 
++ 
++   joint_permutation_plot <- test %>%
++     group_by(`Variable Combo`) %>%
++     ggplot(aes(x= value, y= reorder(`Variable Combo`,value))) +
++     geom_line(aes(group = `Variable Combo`),color="grey") +
++     geom_point(aes(color=Type), size=4) +
++     labs(y="Combination") +
++     ylab("County Features") +
++     xlab("Model Risk Ratio") +
++     theme_bw()
++ 
++ 
++   p <- plot_grid(risk_plot, quantile_plot, labels = label, vjust = -0.1)
++   ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), p,  width = 15, height = 12)
++   ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 15, height = 6)
++ 
++   return(list("indiv_results" = merged_results, "joint_results"= test))
++ }
+> 
+> 
+> fit_sl_varimp <- function(outcome,label) {
++ 
++   ## load data
++   covid_data_processed <- read.csv(PROCESSED_DATA_PATH("cleaned_covid_data_final_Mar_31_22.csv"), check.names = FALSE)
++   covid_data_processed <- covid_data_processed[,-1]
++ 
++   Data_Dictionary <- read_excel(PROCESSED_DATA_PATH("Data_Dictionary.xlsx"))
++   Data_Dictionary <- Data_Dictionary[Data_Dictionary$`Variable Name` %in% colnames(covid_data_processed),]
++ 
++   covid_data_processed$CountyRelativeDay100Cases <- covid_data_processed$CountyRelativeDay100Cases / covid_data_processed$Population
++   covid_data_processed$TotalCasesUpToDate <- covid_data_processed$TotalCasesUpToDate / covid_data_processed$Population
++   covid_data_processed$CountyRelativeDay100Deaths <- covid_data_processed$CountyRelativeDay100Deaths / covid_data_processed$Population
++   covid_data_processed$TotalDeathsUpToDate <- covid_data_processed$TotalDeathsUpToDate / covid_data_processed$Population
++   covid_data_processed$Deathsat1year <- covid_data_processed$Deathsat1year / covid_data_processed$Population
++   covid_data_processed$Casesat1year <- covid_data_processed$Casesat1year / covid_data_processed$Population
++ 
++   outcomes <- c("CountyRelativeDay100Cases",
++                 "TotalCasesUpToDate",
++                 "CountyRelativeDay100Deaths" ,
++                 "TotalDeathsUpToDate",
++                 "Deathsat1year",
++                 "Casesat1year")
++ 
++ 
++   covars <- colnames(covid_data_processed)[-which(names(covid_data_processed) %in% c(
++     outcomes,
++     "fips",
++     "county_names"
++   ))]
++ 
++ 
++   task <- make_sl3_Task(
++     data = covid_data_processed,
++     covariates = covars,
++     outcome = outcome,
++     folds = origami::make_folds(covid_data_processed, fold_fun = folds_vfold, V = 10))
++ 
++   discrete_sl <- source(here("R/utils_create_sl.R"))
++   discrete_sl <- discrete_sl$value()
++   ## fit the sl3 object
++   sl_fit <- discrete_sl$train(task)
++ 
++   ## get variable importance from the sl3 object
++   var_importance <- run_varimp(fit = sl_fit,
++                                loss = loss_squared_error,
++                                covars = covars,
++                                outcome = outcome,
++                                data = covid_data_processed,
++                                data_dictionary = Data_Dictionary,
++                                label = label,
++                                thresh = 1.02)
++ 
++   SL_results <- list('fit' = sl_fit, 'var_imp' = var_importance)
++ 
++   saveRDS(SL_results, here(paste("Models/", outcome, ".RDS", sep = "")))
++ 
++   return(NULL)
++ }
+> 
+> 
+> Casestodate <- fit_sl_varimp(outcome = "TotalCasesUpToDate", label = "Total COVID-19 Cases To-Date")
+INFO [2022-04-06 18:34:41] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:18] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:19] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:20] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:21] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:22] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:23] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:24] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:26] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:47] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:48] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:48] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:49] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:50] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:51] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:52] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:36:53] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:12] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:13] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:14] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:15] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:16] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:16] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:17] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:18] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:38] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:38] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:39] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:40] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:41] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:42] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:43] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:37:44] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:02] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:03] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:03] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:04] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:05] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:05] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:06] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:08] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:25] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:26] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:27] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:27] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:28] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:29] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:29] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:31] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:49] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:49] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:50] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:51] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:51] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:52] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:53] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:38:54] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:11] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:12] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:13] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:13] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:14] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:15] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:15] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:17] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:32] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:33] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:34] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:34] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:35] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:35] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:36] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:37] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:54] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:55] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:55] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:56] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:56] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:57] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:58] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:39:59] simpleMessage Lrnr_polspline_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:13] simpleMessage Lrnr_polspline_5_1 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:14] simpleMessage Lrnr_polspline_5_2 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:14] simpleMessage Lrnr_polspline_5_3 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:16] simpleMessage Lrnr_polspline_5_7 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:15] simpleMessage Lrnr_polspline_5_4 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:15] simpleMessage Lrnr_polspline_5_5 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+INFO [2022-04-06 18:40:16] simpleMessage Lrnr_polspline_5_6 Learner called function :: with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polspline with unknown args: cv. These will be dropped.
+Check the params supported by this learner.Learner called function polymars with unknown args: cv. These will be dropped.
+Check the params supported by this learner.
+
+ [1] "CentroidLon"                                               
+ [2] "NearestAirportOver5000000Distance"                         
+ [3] "Life.expectancy.raw.value"                                 
+ [4] "prev_2017_all_ages_Arthritis"                              
+ [5] "prev_2017_all_ages_Schizophrenia/Other Psychotic Disorders"
+ [6] "Primary.care.physicians.raw.value"                         
+ [7] "High.school.graduation.raw.value"                          
+ [8] "Income.inequality.raw.value"                               
+ [9] "pct_no_workers_in_household_2018"                          
+[10] "Driving.alone.to.work.raw.value"                           
+[11] "occ_Info"                                                  
+[12] "occ_educ_health"                                           
+[13] "ATRAZINE"                                                  
+[14] "CYHALOTHRIN-GAMMA"                                         
+[15] "2,4-D"                                                     
+[16] "CLOPYRALID"                                                
+[17] "PICLORAM"                                                  
+[18] "CHLORANTRANILIPROLE"                                       
+[19] "FLUTRIAFOL"                                                
+[20] "BENTAZONE"                                                 
+[21] "METSULFURON"                                               
+[22] "CHLORPYRIFOS"                                              
+[23] "SULFUR"                                                    
+[24] "avg_atrazine_levels"                                       
+[25] "female_jail_pop_rate"                                      
+[26] "black_jail_pop_rate"                                       
+[27] "male_pop_15to64_ratio"                                     
+[28] "latinx_pop_15to64_ratio"                                   
+[29] "sr_incarceration_bw"                                       
+[30] "hisphisp"                                                  
+[31] "total"                                                     
+[32] "age60_79"                                                  
+[33] "Radiological contaminants"                                 
+[34] "Tetrachloroethylene (perchloroethylene)"                   
+[35] "mean_between1950_75"                                       
+[1] 2
+character(0)
+[1] 3
+[1] "Finished LOO-Risk Importance"
+ [1] "Population"                                
+ [2] "GDP"                                       
+ [3] "pct_female_2018"                           
+ [4] "urban_rural_status"                        
+ [5] "all_stroke_deathrate"                      
+ [6] "Premature.death.raw.value"                 
+ [7] "prev_2017_all_ages_Chronic Kidney Disease" 
+ [8] "prev_2017_all_ages_COPD"                   
+ [9] "prev_2017_all_ages_Depression"             
+[10] "Percentage.of.households.with.overcrowding"
+[11] "pct_in_labor_force_employed_2018"          
+[12] "percent_park_access"                       
+[13] "EPL_AGE65"                                 
+[14] "EPL_AGE17"                                 
+[15] "EPL_DISABL"                                
+[16] "occ_all_federal"                           
+[17] "occ_all_state"                             
+[18] "occ_all_local"                             
+[19] "rep_ratio"                                 
+[20] "soc_assc_rate"                             
+[21] "pct_mental_distress"                       
+[22] "IMAZETHAPYR"                               
+[23] "METALAXYL"                                 
+[24] "METRIBUZIN"                                
+[25] "FOMESAFEN"                                 
+[26] "IMIDACLOPRID"                              
+[27] "METCONAZOLE"                               
+[28] "FLUDIOXONIL"                               
+[29] "GLUFOSINATE"                               
+[30] "MANCOZEB"                                  
+[31] "DIFLUFENZOPYR"                             
+[32] "FLUMETSULAM"                               
+[33] "GLYPHOSATE"                                
+[34] "FLUMIOXAZIN"                               
+[35] "HALOSULFURON"                              
+[36] "MESOTRIONE"                                
+[37] "avg_arsenic_levels"                        
+[38] "BWD"                                       
+[39] "AWD"                                       
+[40] "white_jail_pop_rate"                       
+[41] "total_jail_adm_rate"                       
+[42] "total_jail_pretrial_rate"                  
+[43] "sr_managerial_bw"                          
+[44] "blackwhite"                                
+[45] "hispblack"                                 
+[46] "otherblack"                                
+[47] "whitehisp"                                 
+[48] "h"                                         
+[49] "weighted_poverty"                          
+[50] "leadriskscore_raw"                         
+[51] "decile"                                    
+[52] "Atrazine"                                  
+[53] "Chlorate"                                  
+[54] "Chlorite"                                  
+[1] 2
+[1] "prev_2017_all_ages_Depression"    "pct_in_labor_force_employed_2018"
+[3] "FOMESAFEN"                        "METCONAZOLE"                     
+[5] "total_jail_adm_rate"              "sr_managerial_bw"                
+[1] 3
+character(0)
+[1] 4
+[1] "Finished Quantile Interaction Search"
+character(0)
+[1] 2
+[1] "Finished Joint Permutation"
+Warning messages:
+1: In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
+  scheduled cores 12, 15 did not deliver results, all values of the jobs will be affected
+2: In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
+  scheduled cores 2, 3, 4 did not deliver results, all values of the jobs will be affected
+3: In mclapply(argsList, FUN, mc.preschedule = preschedule, mc.set.seed = set.seed,  :
+  scheduled cores 9, 11 did not deliver results, all values of the jobs will be affected
+4: In melt(test, id.vars = c("Variable Combo", "diff")) :
+  The melt generic in data.table has been passed a data.frame and will attempt to redirect to the relevant reshape2 method; please note that reshape2 is deprecated, and this redirection is now deprecated as well. To continue using melt methods from reshape2 while both libraries are attached, e.g. melt.list, you can prepend the namespace like reshape2::melt(test). In the next version, this warning will become an error.
+> 
+> 
+> proc.time()
+     user    system   elapsed 
+30507.959   850.557  3091.513 
