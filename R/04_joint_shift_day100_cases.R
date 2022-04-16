@@ -1,13 +1,13 @@
 library(here)
 source(here("R/util.R"))
-cpus <- 5
+cpus <- 16
 
 doParallel::registerDoParallel(cpus)
 future::plan(future::multisession)
 
 ## SL result
 
-ML_pipeline_results <- readRDS(here("Models/Models/CountyRelativeDay100Cases.RDS"))
+ML_pipeline_results <- readRDS(here("Models/CountyRelativeDay100Cases.RDS"))
 outcome <- "CountyRelativeDay100Cases_PopScale"
 ################ Define Global Variables ##################
 
