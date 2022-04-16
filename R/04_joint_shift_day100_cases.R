@@ -83,7 +83,6 @@ get_top_variables <- function(ML_results) {
 
 top_vars <- get_top_variables(ML_pipeline_results)
 
-
 ###############################################
 ##### TOP VARS & CAT FOR EACH OUTCOME #########
 ###############################################
@@ -274,7 +273,7 @@ joint_impact_day100_cases <- bootstrap_marginal_predictions(target_variable = to
                                                              data_original = data_original,
                                                              covars = covars,
                                                              percents = percents,
-                                                             boot_num = 4)
+                                                             boot_num = 10)
 
 
 

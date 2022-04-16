@@ -1,6 +1,6 @@
 #!/bin/bash
 # Job name:
-#SBATCH --job-name=covid_cases_day100_shift
+#SBATCH --job-name=covid_deaths_total_shift
 #
 # Partition:
 #SBATCH --partition=savio2
@@ -21,4 +21,4 @@ OMP_NUM_THREADS=1
 ### for foreach+doSNOW ###
 cd /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
  
-R CMD BATCH --no-save R/04_joint_shift_day100_cases.R logs/cases_day100_forward_shift.Rout
+R CMD BATCH --no-save R/04_joint_shift_total_deaths.R logs/deaths_total_forward_shift.Rout

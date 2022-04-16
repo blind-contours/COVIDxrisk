@@ -1,13 +1,14 @@
 library(here)
 source(here("R/util.R"))
-plan(multisession)
 cpus <- 16
+
+doParallel::registerDoParallel(cpus)
+future::plan(future::multisession)
 
 ## SL result
 
-ML_pipeline_results <- readRDS(here("Models/CountyRelativeDay100Deaths.RDS"))
+ML_pipeline_results <- readRDS(here("Models/Deathsat1year.RDS"))
 outcome <- "CountyRelativeDay100Deaths_PopScale"
-
 ################ Define Global Variables ##################
 
 SCALE <- FALSE
@@ -47,8 +48,8 @@ subcategory_list <- Data_Dictionary_Used$Label
 
 ## create the per-capita outcomes
 data_original <- data_original %>% mutate(across(contains("RelativeDay") | contains("UpToDate") | contains("at1year"),
-                .fns = list(PopScale = function(x) x/data_original$Population),
-                .names = "{col}_{fn}"))
+                                                 .fns = list(PopScale = function(x) x/data_original$Population),
+                                                 .names = "{col}_{fn}"))
 
 # test perc reduced
 percents <- seq(0, 0.9, by = 0.1)
@@ -82,7 +83,6 @@ get_top_variables <- function(ML_results) {
 
 top_vars <- get_top_variables(ML_pipeline_results)
 
-
 ###############################################
 ##### TOP VARS & CAT FOR EACH OUTCOME #########
 ###############################################
@@ -96,25 +96,6 @@ top_var_subgroups <- subcategory_list[match(top_vars, variable_list)]
 top_var_subcat_vars <- purrr::map(.x = top_var_subgroups, ~ variable_list[subcategory_list %in% .x])
 
 
-make_boot_dfs <- function(top_var, percents) {
-  df <- as.data.frame(matrix(nrow = length(percents), ncol = 4))
-  colnames(df) <- c(
-    top_var,
-    "Boot Pred",
-    "Boot Low",
-    "Boot High"
-  )
-  return(df)
-}
-
-boot_varnames <- paste0("boot_df_", c("SL_full", "univar_gam"))
-
-for(i in seq_along(boot_varnames)) {
-  assign(boot_varnames[i], purrr::map(
-    .x = top_vars[[1]],
-    .f = make_boot_dfs, percents = percents))
-}
-
 ## set up bootstrap CI function
 bootstrapCI <- function(target_variable,
                         data_original,
@@ -122,6 +103,8 @@ bootstrapCI <- function(target_variable,
                         covars,
                         outcome,
                         perc) {
+
+  future::plan(future::sequential, gc = TRUE)
 
   sl <- ML_pipeline_result$fit
 
@@ -170,9 +153,9 @@ bootstrapCI <- function(target_variable,
   }
 
   reduced_tasks <- make_sl3_Task(data = data_resampled_reduced,
-                        outcome = outcome,
-                        covariates = covars,
-                        folds = origami::make_folds(resampled_data, fold_fun = folds_vfold, V = 2))
+                                 outcome = outcome,
+                                 covariates = covars,
+                                 folds = origami::make_folds(resampled_data, fold_fun = folds_vfold, V = 2))
 
 
 
@@ -188,20 +171,19 @@ bootstrapCI <- function(target_variable,
 bootstrap_marginal_predictions <- function(target_variable,
                                            ML_pipeline_result,
                                            outcome,
-                                           boot_df_SL_full,
                                            data_original = data_original,
                                            covars = covars,
                                            percents = percents,
-                                           pop = data_original$Population,
-                                           boot_num,
-                                           title){
+                                           boot_num){
+
+  pop <- data_original$Population
 
   target_variable <- as.list(target_variable)
   target_variable[[length(target_variable) + 1]] <- target_variable
 
   boot_df_SL_full = replicate(n = length(target_variable),
-                       expr = {as.data.frame(matrix(nrow = length(percents), ncol = 5))},
-                       simplify = F)
+                              expr = {as.data.frame(matrix(nrow = length(percents), ncol = 5))},
+                              simplify = F)
 
   boot_array_list <- list()
 
@@ -219,7 +201,7 @@ bootstrap_marginal_predictions <- function(target_variable,
       perc <- percents[i]
       # bootstrap for boot_num number of times
       boot_updates <- foreach(this_iter = seq_len(boot_num),
-                              .errorhandling = "pass") %do%  {
+                              .errorhandling = "pass") %dopar%  {
                                 bootstrapCI(
                                   target_variable = var,
                                   data_original = data_original,
@@ -285,15 +267,13 @@ bootstrap_marginal_predictions <- function(target_variable,
   return(NULL)
 }
 
-joint_impact_day100_deaths <- bootstrap_marginal_predictions(target_variable = top_vars,
-                                                             ML_pipeline_result = ML_pipeline_results,
-                                                             outcome = outcome,
-                                                             boot_df_SL_full,
-                                                             data_original = data_original,
-                                                             covars = covars,
-                                                             percents = percents,
-                                                             pop = data_original$Population,
-                                                             boot_num = 10)
+joint_impact_day100_cases <- bootstrap_marginal_predictions(target_variable = top_vars,
+                                                            ML_pipeline_result = ML_pipeline_results,
+                                                            outcome = outcome,
+                                                            data_original = data_original,
+                                                            covars = covars,
+                                                            percents = percents,
+                                                            boot_num = 10)
 
 
 
