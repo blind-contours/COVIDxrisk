@@ -16,7 +16,7 @@
 #SBATCH --time 4:00:00
 #
 ## Command(s) to run (example):
-module load r/4.1.0
+module load r/4.0.3
 OMP_NUM_THREADS=1
 ### for foreach+doSNOW ###
-R CMD BATCH --no-save 03_fit_total_cases_model.R total_cases_modeling.Rout
+R CMD BATCH --no-save 03_fit_total_cases_model.R logs/total_cases_modeling.Rout
