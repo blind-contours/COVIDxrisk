@@ -1,7 +1,7 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 16
+cpus <- 20
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q){
 
@@ -251,7 +251,6 @@ run_varimp <- function(fit,
     ylab("County Features") +
     xlab("Model Risk Ratio") +
     theme_bw()
-
 
   p <- plot_grid(risk_plot, quantile_plot, labels = label, vjust = -0.1)
   ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), p,  width = 15, height = 12)

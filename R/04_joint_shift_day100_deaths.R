@@ -1,7 +1,7 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 16
+cpus <- 20
 
 ## SL result
 
@@ -293,7 +293,7 @@ joint_impact_day100_deaths <- bootstrap_marginal_predictions(target_variable = t
                                                              covars = covars,
                                                              percents = percents,
                                                              pop = data_original$Population,
-                                                             boot_num = 10)
+                                                             boot_num = 20)
 
 
 

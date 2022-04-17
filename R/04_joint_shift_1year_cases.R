@@ -1,6 +1,6 @@
 library(here)
 source(here("R/util.R"))
-cpus <- 16
+cpus <- 20
 
 doParallel::registerDoParallel(cpus)
 future::plan(future::multisession)
@@ -8,7 +8,7 @@ future::plan(future::multisession)
 ## SL result
 
 ML_pipeline_results <- readRDS(here("Models/Casesat1year.RDS"))
-outcome <- "CountyRelativeDay100Cases_PopScale"
+outcome <- "Casesat1year_PopScale"
 ################ Define Global Variables ##################
 
 SCALE <- FALSE
@@ -273,7 +273,7 @@ joint_impact_day100_cases <- bootstrap_marginal_predictions(target_variable = to
                                                             data_original = data_original,
                                                             covars = covars,
                                                             percents = percents,
-                                                            boot_num = 10)
+                                                            boot_num = 20)
 
 
 
