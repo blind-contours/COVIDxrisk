@@ -1,9 +1,10 @@
 library(here)
 source(here("R/util.R"))
-cpus <- 20
+cpus <- 5
+mcoptions <- list(preschedule=FALSE, set.seed=FALSE)
 
 doParallel::registerDoParallel(cpus)
-future::plan(future::multisession)
+future::plan(future::multisession, gc = TRUE)
 
 ## SL result
 
@@ -14,7 +15,7 @@ outcome <- "Deathsat1year_PopScale"
 SCALE <- FALSE
 
 data_original <- read.csv(PROCESSED_DATA_PATH("cleaned_covid_data_final_Mar_31_22.csv"), check.names = FALSE)
-data_original <- data_original[,-1] # remove the column with empty name
+data_original <- data_original[, -1] # remove the column with empty name
 
 ## read in data dictionary for identifying subgroups of top variables to isolate the different control conditions
 Data_Dictionary <- read_excel(PROCESSED_DATA_PATH("Data_Dictionary.xlsx"))
@@ -48,8 +49,9 @@ subcategory_list <- Data_Dictionary_Used$Label
 
 ## create the per-capita outcomes
 data_original <- data_original %>% mutate(across(contains("RelativeDay") | contains("UpToDate") | contains("at1year"),
-                                                 .fns = list(PopScale = function(x) x/data_original$Population),
-                                                 .names = "{col}_{fn}"))
+  .fns = list(PopScale = function(x) x / data_original$Population),
+  .names = "{col}_{fn}"
+))
 
 # test perc reduced
 percents <- seq(0, 0.9, by = 0.1)
@@ -99,65 +101,58 @@ top_var_subcat_vars <- purrr::map(.x = top_var_subgroups, ~ variable_list[subcat
 ## set up bootstrap CI function
 bootstrapCI <- function(target_variable,
                         data_original,
-                        ML_pipeline_result,
+                        ML_pipeline_results,
                         covars,
                         outcome,
-                        perc) {
+                        perc,
+                        marginal_directions) {
 
   future::plan(future::sequential, gc = TRUE)
 
-  sl <- ML_pipeline_result$fit
+  sl <- ML_pipeline_results$fit
 
   nr <- nrow(data_original)
   data_tmp <- data_original
   resampled_data <- data_tmp[sample(1:nr, size = nr, replace = TRUE), ]
 
-  task <- make_sl3_Task(data = resampled_data,
-                        outcome = outcome,
-                        covariates = covars,
-                        folds = origami::make_folds(resampled_data, fold_fun = folds_vfold, V = 2))
+  task <- make_sl3_Task(
+    data = resampled_data,
+    outcome = outcome,
+    covariates = covars,
+    folds = origami::make_folds(resampled_data, fold_fun = folds_vfold, V = 2)
+  )
 
-  sl_fit_full_resampled <- sl$train(task)
+  sl_fit_full_resampled <- suppressMessages(sl$train(task))
 
   ## get the original data and reduce the target variable by perc
-  data_resampled_reduced <- data_original
+  data_resampled_reduced <- resampled_data
 
-  for (t_var in target_variable){
-    if (t_var == "ALWAYS"){
-      other_mask_wearing <- c("NEVER", "RARELY", "SOMETIMES", "FREQUENTLY")
-      t_max <- max(data_resampled_reduced[, t_var])
-      for(i in 1:nrow(data_resampled_reduced)){
-        cur_data <- data_resampled_reduced[[i, t_var]]
+  if (length(target_variable) > 1) {
+    for (t_var_index in 1:length(target_variable)) {
+      t_var <- target_variable[[t_var_index]]
+      t_var_dir <- marginal_directions[[t_var_index]]
 
-        if(t_max > cur_data){
-          data_resampled_reduced[[i, t_var]] <- cur_data + (cur_data * perc)
-          remainder <- (1 - data_resampled_reduced[[i, t_var]])/4
-        }else{
-          data_resampled_reduced[[i, t_var]] <- t_max
-          remainder <- (1 - t_max)/4
-        }
-        data_resampled_reduced[i, other_mask_wearing] <- data_resampled_reduced[i, other_mask_wearing] - (data_resampled_reduced[i, other_mask_wearing] * remainder)
-      }
-    }else{
-      t_min <- min(data_resampled_reduced[, t_var])
-
-      for(i in 1:nrow(data_resampled_reduced)) {
-        cur_data <- data_resampled_reduced[[i, t_var]]
-        if(t_min < cur_data)
-          data_resampled_reduced[[i, t_var]] <- cur_data - (cur_data * perc)
-        else {
-          data_resampled_reduced[[i, t_var]] <- t_min
-        }
+      if (t_var_dir == 1) {
+        t_thresh <- min(data_resampled_reduced[, t_var])
+        data_resampled_reduced[[t_var]] <- ifelse(t_thresh < data_resampled_reduced[[t_var]], data_resampled_reduced[[t_var]] - (data_resampled_reduced[[t_var]] * perc), t_thresh)
+      } else {
+        t_thresh <- max(data_resampled_reduced[, t_var])
+        perc <- -perc
+        data_resampled_reduced[[t_var]] <- ifelse(t_thresh > data_resampled_reduced[[t_var]], data_resampled_reduced[[t_var]] - (data_resampled_reduced[[t_var]] * perc), t_thresh)
       }
     }
+  } else {
+    t_var <- target_variable
+    t_thresh <- min(data_resampled_reduced[, t_var])
+    data_resampled_reduced[[t_var]] <- ifelse(t_thresh < data_resampled_reduced[[t_var]], data_resampled_reduced[[t_var]] - (data_resampled_reduced[[t_var]] * perc), t_thresh)
   }
 
-  reduced_tasks <- make_sl3_Task(data = data_resampled_reduced,
-                                 outcome = outcome,
-                                 covariates = covars,
-                                 folds = origami::make_folds(resampled_data, fold_fun = folds_vfold, V = 2))
-
-
+  reduced_tasks <- make_sl3_Task(
+    data = data_resampled_reduced,
+    outcome = outcome,
+    covariates = covars,
+    folds = origami::make_folds(data_resampled_reduced, fold_fun = folds_vfold, V = 2)
+  )
 
   ## predict through superlearner for reduced data on resampled models
   sl_preds_reduced_full <- sl_fit_full_resampled$predict(reduced_tasks)
@@ -169,49 +164,70 @@ bootstrapCI <- function(target_variable,
 }
 
 bootstrap_marginal_predictions <- function(target_variable,
-                                           ML_pipeline_result,
+                                           ML_pipeline_results,
                                            outcome,
                                            data_original = data_original,
                                            covars = covars,
                                            percents = percents,
-                                           boot_num){
-
+                                           boot_num) {
   pop <- data_original$Population
 
   target_variable <- as.list(target_variable)
   target_variable[[length(target_variable) + 1]] <- target_variable
 
-  boot_df_SL_full = replicate(n = length(target_variable),
-                              expr = {as.data.frame(matrix(nrow = length(percents), ncol = 5))},
-                              simplify = F)
+  boot_df_SL_full <- replicate(
+    n = length(target_variable),
+    expr = {
+      as.data.frame(matrix(nrow = length(percents), ncol = 5))
+    },
+    simplify = F
+  )
 
   boot_array_list <- list()
+  marginal_direction_list <- list()
+  marginal_directions <- list()
 
-  for(var_index in 1:length(target_variable)){
-
+  for (var_index in 1:length(target_variable)) {
     var <- unlist(target_variable[[var_index]])
 
-    if(length(var) > 1){
+    if (length(var) > 1) {
       var_label <- paste(var, collapse = " & ")
-    }else{
+    } else {
       var_label <- var
     }
 
     for (i in 1:length(percents)) {
       perc <- percents[i]
-      # bootstrap for boot_num number of times
-      boot_updates <- foreach(this_iter = seq_len(boot_num),
-                              .errorhandling = "pass") %dopar%  {
-                                bootstrapCI(
-                                  target_variable = var,
-                                  data_original = data_original,
-                                  ML_pipeline_result = ML_pipeline_result,
-                                  covars = covars,
-                                  outcome = outcome,
-                                  perc = perc)
-                              }
 
-      boot_data_array_SL_full <-  colSums(do.call(cbind, boot_updates) * pop)
+      remaining <- boot_num
+
+      # while (remaining > 0) {
+
+        # bootstrap for boot_num number of times
+        boot_updates <- foreach(
+          this_iter = seq(remaining),
+          .errorhandling = "pass",
+          .options.multicore=mcoptions
+        ) %dopar% {
+          bootstrapCI(
+            target_variable = var,
+            data_original = data_original,
+            ML_pipeline_results = ML_pipeline_results,
+            covars = covars,
+            outcome = outcome,
+            perc = perc,
+            marginal_directions
+          )
+        }
+
+        boot_updates <- boot_updates[lapply(boot_updates, is.null) == FALSE]
+
+      #   remaining <- boot_num - length(boot_updates)
+      #
+      #   print(remaining)
+      # }
+
+      boot_data_array_SL_full <- colSums(do.call(cbind, boot_updates) * pop)
       boot_data_vector_SL_full <- do.call(cbind, boot_updates) * pop
 
       boot_array_list[[var_index]] <- boot_data_vector_SL_full
@@ -226,6 +242,11 @@ bootstrap_marginal_predictions <- function(target_variable,
       boot_df_SL_full[[var_index]][i, 3] <- SL_quantiles[2]
       boot_df_SL_full[[var_index]][i, 4] <- SL_quantiles[3]
       boot_df_SL_full[[var_index]][i, 5] <- var_label
+
+      max_diff <- boot_df_SL_full[[var_index]]$`Boot Pred`[1] - boot_df_SL_full[[var_index]]$`Boot Pred`[10]
+      direction <- ifelse(max_diff > 0, 1, -1)
+
+      marginal_directions[[var_index]] <- direction
     }
   }
 
@@ -245,8 +266,8 @@ bootstrap_marginal_predictions <- function(target_variable,
     geom_hline(yintercept = actual_outcome)
 
   figure_file_name <- paste(outcome, "_marginal_predictions", ".png", sep = "")
-  CI_data_file_name <-  here("data/processed",paste(paste(outcome, "CI_data", sep = "_"), ".csv", sep = ""))
-  array_data_file_name <-  here("data/processed",paste(paste(outcome, "full_data", sep = "_"), ".RDS", sep = ""))
+  CI_data_file_name <- here("data/processed", paste(paste(outcome, "CI_data", sep = "_"), ".csv", sep = ""))
+  array_data_file_name <- here("data/processed", paste(paste(outcome, "full_data", sep = "_"), ".RDS", sep = ""))
 
   ggsave(
     filename = figure_file_name,
@@ -267,14 +288,12 @@ bootstrap_marginal_predictions <- function(target_variable,
   return(NULL)
 }
 
-joint_impact_day100_cases <- bootstrap_marginal_predictions(target_variable = top_vars,
-                                                            ML_pipeline_result = ML_pipeline_results,
-                                                            outcome = outcome,
-                                                            data_original = data_original,
-                                                            covars = covars,
-                                                            percents = percents,
-                                                            boot_num = 20)
-
-
-
-
+joint_impact_day100_cases <- bootstrap_marginal_predictions(
+  target_variable = top_vars,
+  ML_pipeline_results = ML_pipeline_results,
+  outcome = outcome,
+  data_original = data_original,
+  covars = covars,
+  percents = percents,
+  boot_num = 5
+)
