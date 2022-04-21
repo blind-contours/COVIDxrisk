@@ -1,7 +1,7 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 5
+cpus <- 20
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q){
   if (is.null(nontarget_q)) {
@@ -27,7 +27,7 @@ run_varimp <- function(fit,
                        data = covid_data_processed,
                        data_dictionary = Data_Dictionary,
                        label = label,
-                       thresh = 1.02,
+                       thresh = 1.01,
                        m = 3)
 {
 
@@ -270,7 +270,7 @@ run_varimp <- function(fit,
 
  risk_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-    filter(risk_ratio > 1.01)  %>%
+    filter(risk_ratio > thresh)  %>%
     mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
     ggplot( aes(x=name, y=risk_ratio)) +
     geom_segment( aes(xend=name, yend=1)) +
@@ -284,7 +284,7 @@ run_varimp <- function(fit,
 
  merged_results_plot <- merged_results %>%
    arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-   filter(risk_ratio > 1.01)  %>%
+   filter(risk_ratio > thresh)  %>%
    mutate(name=factor(X, levels=X))
 
  quantile_results_long <- melt(merged_results_plot[c(3:8)], id.vars="name")
