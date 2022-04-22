@@ -16,9 +16,9 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q){
       }
     }
   }
-    return(data)
+  return(data)
 
-  }
+}
 
 run_varimp <- function(fit,
                        loss,
@@ -269,7 +269,7 @@ run_varimp <- function(fit,
   total <- sum(dat[[outcome]] * dat$Population)
   merged_results[3:7] <- merged_results[3:7] * total
 
- risk_plot <- merged_results %>%
+  risk_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
     filter(risk_ratio > thresh)  %>%
     mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
@@ -283,12 +283,12 @@ run_varimp <- function(fit,
 
   # quantile plots
 
- merged_results_plot <- merged_results %>%
-   arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-   filter(risk_ratio > thresh)  %>%
-   mutate(name=factor(X, levels=X))
+  merged_results_plot <- merged_results %>%
+    arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+    filter(risk_ratio > thresh)  %>%
+    mutate(name=factor(X, levels=X))
 
- quantile_results_long <- melt(merged_results_plot[c(3:8)], id.vars="name")
+  quantile_results_long <- melt(merged_results_plot[c(3:8)], id.vars="name")
 
   quantiles_plot <- quantile_results_long %>%
     filter(variable !=  "Interaction Metric") %>%
@@ -320,7 +320,7 @@ run_varimp <- function(fit,
   ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), risk_plot,  width = 8, height = 6)
   ggsave(here(paste("Figures/", "quantile_imp_", label, ".png", sep = "")), quantiles_plot,  width = 8, height = 6)
   ggsave(here(paste("Figures/", "interaction_imp_", label, ".png", sep = "")), interaction_plot,  width = 8, height = 6)
-  ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 8, height = 6)
+  ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 14, height = 6)
 
   return(list("indiv_results" = merged_results, "joint_results"= test))
 }
@@ -384,7 +384,6 @@ fit_sl_varimp <- function(outcome,label) {
 
   return(NULL)
 }
-
 
 Deathstodate <- fit_sl_varimp(outcome = "TotalDeathsUpToDate", label = "Total COVID-19 Deaths To-Date")
 

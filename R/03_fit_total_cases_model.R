@@ -1,16 +1,19 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 16
+cpus <- 20
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q){
-
-  for (i in X) {
-    if (i == target) {
-      data[[i]] <- quantile(data[[i]], target_q)
-    }
-    else{
-      data[[i]] <- quantile(data[[i]], nontarget_q)
+  if (is.null(nontarget_q)) {
+    data[[target]] <- quantile(data[[target]], target_q)
+  }else{
+    for (i in X) {
+      if (i == target) {
+        data[[i]] <- quantile(data[[i]], target_q)
+      }
+      else{
+        data[[i]] <- quantile(data[[i]], nontarget_q)
+      }
     }
   }
   return(data)
@@ -24,7 +27,7 @@ run_varimp <- function(fit,
                        data = covid_data_processed,
                        data_dictionary = Data_Dictionary,
                        label = label,
-                       thresh = 1.02,
+                       thresh = 1.01,
                        m = 3)
 {
 
@@ -81,10 +84,24 @@ run_varimp <- function(fit,
 
       dat <- fit$training_task$data
 
+      # all non-target at 25%
       target_25_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.25)
       target_75_nontarget_25 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.25)
+
+      # all non-target at 75%
       target_25_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.75)
       target_75_nontarget_75 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.75)
+
+      # all non-target at 75%
+      target_25_nontarget_50 <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = 0.50)
+      target_75_nontarget_50 <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = 0.50)
+
+      # all non-target at observed
+      target_25_nontarget_obs <-set_quantiles(data = dat, X, target = i, target_q = 0.25, nontarget_q = NULL)
+      target_75_nontarget_obs <-set_quantiles(data = dat, X, target = i, target_q = 0.75, nontarget_q = NULL)
+
+
+      # all non-target at 25%
 
       task_target_25_nontarget_25 <- make_sl3_Task(
         data = target_25_nontarget_25,
@@ -96,6 +113,8 @@ run_varimp <- function(fit,
         covariates = covars,
         outcome = outcome)
 
+      # all non-target at 75%
+
       task_target_25_nontarget_75 <- make_sl3_Task(
         data = target_25_nontarget_75,
         covariates = covars,
@@ -106,6 +125,30 @@ run_varimp <- function(fit,
         covariates = covars,
         outcome = outcome)
 
+      # all non-target at 50%
+
+      task_target_25_nontarget_50 <- make_sl3_Task(
+        data = target_25_nontarget_50,
+        covariates = covars,
+        outcome = outcome)
+
+      task_target_75_nontarget_50 <- make_sl3_Task(
+        data = target_75_nontarget_50,
+        covariates = covars,
+        outcome = outcome)
+
+      # all non-target at observed
+
+      task_target_25_nontarget_obs <- make_sl3_Task(
+        data = target_25_nontarget_obs,
+        covariates = covars,
+        outcome = outcome)
+
+      task_target_75_nontarget_obs <- make_sl3_Task(
+        data = target_75_nontarget_obs,
+        covariates = covars,
+        outcome = outcome)
+
 
       y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "validation")
       y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "validation")
@@ -113,12 +156,20 @@ run_varimp <- function(fit,
       y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "validation")
       y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "validation")
 
+      y_25_50_predictions <- fit$predict_fold(task = task_target_25_nontarget_50, fold_number = "validation")
+      y_75_50_predictions <- fit$predict_fold(task = task_target_75_nontarget_50, fold_number = "validation")
+
+      y_25_obs_predictions <- fit$predict_fold(task = task_target_25_nontarget_obs, fold_number = "validation")
+      y_75_obs_predictions <- fit$predict_fold(task = task_target_75_nontarget_obs, fold_number = "validation")
+
       delta_rest_high <- mean(y_75_75_predictions - y_25_75_predictions)
+      delta_rest_medium <- mean(y_75_50_predictions - y_25_50_predictions)
       delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
 
+      delta_rest_obs <- mean(y_75_obs_predictions - y_25_obs_predictions)
       varimp_metric <- delta_rest_high - delta_rest_low
 
-      result <- cbind(i, varimp_metric)
+      result <- cbind(i, delta_rest_high, delta_rest_medium, delta_rest_low, delta_rest_obs, varimp_metric)
 
       return(result)
     }
@@ -141,8 +192,8 @@ run_varimp <- function(fit,
   risk_results_ordered <- risk_results[order(-risk_results$risk_ratio),]
 
   quantile_results <- data.table(quantile_importance)
-  colnames(quantile_results) <- c("X", "risk_difference")
-  quantile_results_ordered <- quantile_results[order(-quantile_results$risk_difference)]
+  colnames(quantile_results) <- c("X", "Delta Rest High", "Delta Rest Medium", "Delta Rest Low", "Delta Rest Obs", "Interaction Metric")
+  quantile_results_ordered <- quantile_results[order(-quantile_results$`Interaction Metric`)]
 
   merged_results <- merge(risk_results_ordered, quantile_results_ordered, by= "X", all.x = TRUE, all.y = TRUE)
   merged_results <- subset(merged_results, merged_results$X != "CentroidLon" & merged_results$X != "CentroidLat" & merged_results$X != "Latitude"  & merged_results$X != "Longitude")
@@ -150,7 +201,7 @@ run_varimp <- function(fit,
 
   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
 
-  merged_results$risk_ratio <- as.numeric(merged_results$risk_ratio)
+  merged_results[,2:7] <- sapply(merged_results[,2:7], as.numeric)
 
   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
@@ -203,7 +254,8 @@ run_varimp <- function(fit,
 
   print("Finished Joint Permutation")
 
-  permuted_importance <- as.data.frame(permuted_importance[,1:3])
+  permuted_importance <- as.data.frame(permuted_importance)
+  permuted_importance <- permuted_importance[1:3]
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
@@ -214,33 +266,44 @@ run_varimp <- function(fit,
   test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
   colnames(test)[3] <- "Type"
 
+  total <- sum(dat[[outcome]] * dat$Population)
+  merged_results[3:7] <- merged_results[3:7] * total
+
   risk_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-    filter(risk_ratio > 1.01)  %>%
+    filter(risk_ratio > thresh)  %>%
     mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
     ggplot( aes(x=name, y=risk_ratio)) +
     geom_segment( aes(xend=name, yend=1)) +
     geom_point( size=4, color="orange") +
     coord_flip() +
-    theme_bw() +
+    theme_bw(base_size = 12) +
     ylab("Model Risk Ratio") +
     xlab("County Feature")
 
-  total <- sum(dat[[outcome]] * dat$Population)
-  merged_results$risk_difference <- as.numeric(merged_results$risk_difference) * total
+  # quantile plots
 
-  quantile_plot <- merged_results %>%
+  merged_results_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
-    filter(risk_ratio > 1.01)  %>%
-    mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
-    ggplot( aes(x=name, y=risk_difference)) +
-    geom_segment( aes(xend=name, yend=0)) +
-    geom_point( size=4, color="blue") +
-    coord_flip() +
-    theme_bw() +
-    ylab("(75 - 25 | 75 ) − (75 - 25 | 25 )") +
-    xlab("")
+    filter(risk_ratio > thresh)  %>%
+    mutate(name=factor(X, levels=X))
 
+  quantile_results_long <- melt(merged_results_plot[c(3:8)], id.vars="name")
+
+  quantiles_plot <- quantile_results_long %>%
+    filter(variable !=  "Interaction Metric") %>%
+    ggplot(aes(name, value, col=variable)) +
+    geom_point(size=4) +
+    coord_flip() +
+    theme_bw(base_size = 12)
+
+  interaction_plot <- quantile_results_long %>%
+    filter(variable ==  "Interaction Metric") %>%
+    ggplot(aes(name, value)) +
+    geom_segment( aes(xend=name, yend=1)) +
+    geom_point(size=4, color="blue") +
+    coord_flip() +
+    theme_bw(base_size = 12)
 
   joint_permutation_plot <- test %>%
     group_by(`Variable Combo`) %>%
@@ -250,12 +313,14 @@ run_varimp <- function(fit,
     labs(y="Combination") +
     ylab("County Features") +
     xlab("Model Risk Ratio") +
-    theme_bw()
+    theme_bw(base_size = 12)
 
 
-  p <- plot_grid(risk_plot, quantile_plot, labels = label, vjust = -0.1)
-  ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), p,  width = 15, height = 12)
-  ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 15, height = 6)
+  # p <- plot_grid(risk_plot, quantiles_plot, interaction_plot, labels = label, vjust = -0.1, nrow = 1)
+  ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), risk_plot,  width = 8, height = 6)
+  ggsave(here(paste("Figures/", "quantile_imp_", label, ".png", sep = "")), quantiles_plot,  width = 8, height = 6)
+  ggsave(here(paste("Figures/", "interaction_imp_", label, ".png", sep = "")), interaction_plot,  width = 8, height = 6)
+  ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 14, height = 6)
 
   return(list("indiv_results" = merged_results, "joint_results"= test))
 }
@@ -319,7 +384,6 @@ fit_sl_varimp <- function(outcome,label) {
 
   return(NULL)
 }
-
 
 Casestodate <- fit_sl_varimp(outcome = "TotalCasesUpToDate", label = "Total COVID-19 Cases To-Date")
 
