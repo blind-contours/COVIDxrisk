@@ -203,7 +203,7 @@ run_varimp <- function(fit,
 
   merged_results[,2:7] <- sapply(merged_results[,2:7], as.numeric)
 
-  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$`Interaction Metric`, .97))$X, m = m)
+  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -254,7 +254,8 @@ run_varimp <- function(fit,
 
   print("Finished Joint Permutation")
 
-  permuted_importance <- as.data.frame(permuted_importance[,1:3])
+  permuted_importance <- as.data.frame(permuted_importance)
+  permuted_importance <- permuted_importance[1:3]
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
@@ -300,7 +301,7 @@ run_varimp <- function(fit,
     filter(variable ==  "Interaction Metric") %>%
     ggplot(aes(name, value)) +
     geom_segment( aes(xend=name, yend=1)) +
-    geom_point( color="blue") +
+    geom_point(size=4, color="blue") +
     coord_flip() +
     theme_bw(base_size = 12)
 
