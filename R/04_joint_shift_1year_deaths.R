@@ -199,28 +199,24 @@ bootstrap_marginal_predictions <- function(target_variable,
     for (i in 1:length(percents)) {
       perc <- percents[i]
 
-      remaining <- boot_num
+      # remaining <- boot_num
 
       # while (remaining > 0) {
 
         # bootstrap for boot_num number of times
-        boot_updates <- foreach(
-          this_iter = seq(remaining),
-          .errorhandling = "pass",
-          .options.multicore=mcoptions
-        ) %dopar% {
-          bootstrapCI(
-            target_variable = var,
-            data_original = data_original,
-            ML_pipeline_results = ML_pipeline_results,
-            covars = covars,
-            outcome = outcome,
-            perc = perc,
-            marginal_directions
-          )
-        }
+      boot_updates <- foreach(this_iter = seq_len(boot_num),
+                              .errorhandling = "pass") %dopar%  {
+                                bootstrapCI(
+                                  target_variable = var,
+                                  data_original = data_original,
+                                  ML_pipeline_results = ML_pipeline_results,
+                                  covars = covars,
+                                  outcome = outcome,
+                                  perc = perc,
+                                  marginal_directions)
+                              }
 
-        boot_updates <- boot_updates[lapply(boot_updates, is.null) == FALSE]
+        # boot_updates <- boot_updates[lapply(boot_updates, is.null) == FALSE]
 
       #   remaining <- boot_num - length(boot_updates)
       #
@@ -295,5 +291,5 @@ joint_impact_day100_cases <- bootstrap_marginal_predictions(
   data_original = data_original,
   covars = covars,
   percents = percents,
-  boot_num = 5
+  boot_num = 3
 )

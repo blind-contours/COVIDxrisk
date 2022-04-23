@@ -205,7 +205,7 @@ bootstrap_marginal_predictions <- function(target_variable,
                                 bootstrapCI(
                                   target_variable = var,
                                   data_original = data_original,
-                                  ML_pipeline_result = ML_pipeline_result,
+                                  ML_pipeline_result = ML_pipeline_results,
                                   covars = covars,
                                   outcome = outcome,
                                   perc = perc)

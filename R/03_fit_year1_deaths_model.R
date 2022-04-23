@@ -17,7 +17,6 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q){
     }
   }
   return(data)
-
 }
 
 run_varimp <- function(fit,
@@ -40,6 +39,10 @@ run_varimp <- function(fit,
 
   nworkers <- cpus
   doParallel::registerDoParallel(nworkers)
+
+  #################################################################################
+  ######################## VARIABLE IMPORTANCE RISK ###############################
+  #################################################################################
 
   remaining <- X
   risk_importance_list <- list()
@@ -68,8 +71,58 @@ run_varimp <- function(fit,
   }
 
   risk_importance <- do.call(rbind, risk_importance_list)
+  risk_results <- data.frame(risk_importance)
+  # X = names(risk_importance), risk_ratio = unlist(risk_importance))
+  colnames(risk_results) <- c("X", "risk_ratio")
+  risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
+  risk_results_ordered <- risk_results[order(-risk_results$risk_ratio),]
 
   print("Finished LOO-Risk Importance")
+
+  ##############################################################################
+  ######################## SUBGROUP INTERACTIONS ###############################
+  ##############################################################################
+
+  Data_Dictionary_Used <- Data_Dictionary %>% filter(Keep == "Yes") %>% select(`Variable Name`, `Label`)
+  Data_Dictionary_Used <- Data_Dictionary_Used[Data_Dictionary_Used$`Variable Name` %in% covars ,]
+  subcategories <- Data_Dictionary_Used$Label
+  variable_list <- Data_Dictionary_Used$`Variable Name`
+
+  remaining <- unique(subcategories)
+  remaining <- remaining[remaining!="outcome"]
+  subgroup_importance_list <- list()
+  iter <- 1
+
+  while (length(remaining) > 0) {
+    subgroup_risk_importance <- foreach(i = remaining, .combine = 'rbind', .errorhandling = "pass") %dopar% {
+
+      subcat_vars <- variable_list[which(subcategories %in% i)]
+      scrambled_rows <- dat[sample(nrow(dat)), ]
+      scrambled_rows_selection <- scrambled_rows %>% dplyr::select(!!subcat_vars)
+      scrambled_col_names <- task$add_columns(scrambled_rows_selection)
+      scrambled_col_task <- task$next_in_chain(column_names = scrambled_col_names)
+      scrambled_sl_preds <- fit$predict_fold(scrambled_col_task,
+                                             fold_number = "validation")
+
+      risk_scrambled <- mean(loss(scrambled_sl_preds, Y))
+      varimp_metric <- risk_scrambled/risk
+      result <- cbind(i, varimp_metric)
+      return(result)
+    }
+
+    subgroup_importance_list[[iter]] <- subgroup_risk_importance
+    remaining <- remaining[remaining %notin% subgroup_risk_importance[,1]]
+    print(remaining)
+    iter <- iter + 1
+    print(iter)
+  }
+
+  subgroup_importance <- as.data.frame(do.call(rbind, subgroup_importance_list))
+
+  colnames(subgroup_importance) <- c("X", "subgroup_risk_ratio")
+  subgroup_importance$subgroup_risk_ratio <- as.numeric(subgroup_importance$subgroup_risk_ratio)
+  subgroup_importance_ordered <- subgroup_importance[order(-subgroup_importance$subgroup_risk_ratio),]
+
 
   ##############################################################################
   ######################## QUANTILE INTERACTIONS ###############################
@@ -182,18 +235,13 @@ run_varimp <- function(fit,
   }
 
   quantile_importance <- do.call(rbind, quantile_importance_list)
-
-  print("Finished Quantile Interaction Search")
-
-  risk_results <- data.frame(risk_importance)
-  # X = names(risk_importance), risk_ratio = unlist(risk_importance))
-  colnames(risk_results) <- c("X", "risk_ratio")
-  risk_results$risk_ratio <- as.numeric(risk_results$risk_ratio)
-  risk_results_ordered <- risk_results[order(-risk_results$risk_ratio),]
-
   quantile_results <- data.table(quantile_importance)
   colnames(quantile_results) <- c("X", "Delta Rest High", "Delta Rest Medium", "Delta Rest Low", "Delta Rest Obs", "Interaction Metric")
   quantile_results_ordered <- quantile_results[order(-quantile_results$`Interaction Metric`)]
+
+
+  print("Finished Quantile Interaction Search")
+
 
   merged_results <- merge(risk_results_ordered, quantile_results_ordered, by= "X", all.x = TRUE, all.y = TRUE)
   merged_results <- subset(merged_results, merged_results$X != "CentroidLon" & merged_results$X != "CentroidLat" & merged_results$X != "Latitude"  & merged_results$X != "Longitude")
@@ -202,8 +250,10 @@ run_varimp <- function(fit,
   merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
 
   merged_results[,2:7] <- sapply(merged_results[,2:7], as.numeric)
+  total <- sum(dat[[outcome]] * dat$Population)
+  merged_results[3:7] <- merged_results[3:7] * total
 
-  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .97))$X, m = m)
+  variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .95))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -259,15 +309,14 @@ run_varimp <- function(fit,
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
-  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
+  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .90))
   test <- melt(test, id.vars=c("Variable Combo", "diff"))
   test$value <- round(as.numeric(test$value),3)
 
   test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
   colnames(test)[3] <- "Type"
 
-  total <- sum(dat[[outcome]] * dat$Population)
-  merged_results[3:7] <- merged_results[3:7] * total
+
 
   risk_plot <- merged_results %>%
     arrange(risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
@@ -315,12 +364,24 @@ run_varimp <- function(fit,
     xlab("Model Risk Ratio") +
     theme_bw(base_size = 12)
 
+  sub_group_risk_plot <- subgroup_importance_ordered %>%
+    arrange(subgroup_risk_ratio) %>%    # First sort by val. This sort the dataframe but NOT the factor levels
+    mutate(name=factor(X, levels=X)) %>%   # This trick update the factor levels
+    ggplot( aes(x=name, y=subgroup_risk_ratio)) +
+    geom_segment( aes(xend=name, yend=1)) +
+    geom_point( size=4, color="orange") +
+    coord_flip() +
+    theme_bw(base_size = 12) +
+    ylab("Model Risk Ratio") +
+    xlab("County Feature")
+
 
   # p <- plot_grid(risk_plot, quantiles_plot, interaction_plot, labels = label, vjust = -0.1, nrow = 1)
   ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), risk_plot,  width = 8, height = 6)
   ggsave(here(paste("Figures/", "quantile_imp_", label, ".png", sep = "")), quantiles_plot,  width = 8, height = 6)
   ggsave(here(paste("Figures/", "interaction_imp_", label, ".png", sep = "")), interaction_plot,  width = 8, height = 6)
   ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 14, height = 6)
+  ggsave(here(paste("Figures/", "subgroup_imp_", label, ".png", sep = "")), sub_group_risk_plot, width = 8, height = 6)
 
   return(list("indiv_results" = merged_results, "joint_results"= test))
 }
@@ -355,7 +416,6 @@ fit_sl_varimp <- function(outcome,label) {
     "fips",
     "county_names"
   ))]
-
 
   task <- make_sl3_Task(
     data = covid_data_processed,
