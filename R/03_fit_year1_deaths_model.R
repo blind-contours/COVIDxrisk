@@ -24,7 +24,7 @@ run_varimp <- function(fit,
                        covars,
                        outcome,
                        data = covid_data_processed,
-                       data_dictionary = Data_Dictionary,
+                       Data_Dictionary = Data_Dictionary,
                        label = label,
                        thresh = 1.01,
                        m = 3)
@@ -247,7 +247,7 @@ run_varimp <- function(fit,
   merged_results <- subset(merged_results, merged_results$X != "CentroidLon" & merged_results$X != "CentroidLat" & merged_results$X != "Latitude"  & merged_results$X != "Longitude")
   risk_results <- subset(risk_results, risk_results$X != "CentroidLon" & risk_results$X != "CentroidLat" & risk_results$X != "Latitude"  & risk_results$X != "Longitude")
 
-  merged_results$X<- data_dictionary$`Nice Label`[match(merged_results$X, data_dictionary$`Variable Name`)]
+  merged_results$X<- Data_Dictionary$`Nice Label`[match(merged_results$X, Data_Dictionary$`Variable Name`)]
 
   merged_results[,2:7] <- sapply(merged_results[,2:7], as.numeric)
   total <- sum(dat[[outcome]] * dat$Population)
@@ -315,7 +315,6 @@ run_varimp <- function(fit,
 
   test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
   colnames(test)[3] <- "Type"
-
 
 
   risk_plot <- merged_results %>%
@@ -434,7 +433,7 @@ fit_sl_varimp <- function(outcome,label) {
                                covars = covars,
                                outcome = outcome,
                                data = covid_data_processed,
-                               data_dictionary = Data_Dictionary,
+                               Data_Dictionary = Data_Dictionary,
                                label = label,
                                thresh = 1.02)
 
