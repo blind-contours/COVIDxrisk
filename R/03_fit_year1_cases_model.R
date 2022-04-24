@@ -287,7 +287,7 @@ run_varimp <- function(fit,
       risk_scrambled <- mean(loss(scrambled_sl_preds, Y))
       varimp_metric <- risk_scrambled/risk
 
-      target_vars_nice <- data_dictionary$`Nice Label`[match(target_vars, data_dictionary$`Variable Name`)]
+      target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
 
       result <- cbind(paste(target_vars_nice, collapse = " & "), varimp_metric, additive_risk, remaining[[i]])
       result
