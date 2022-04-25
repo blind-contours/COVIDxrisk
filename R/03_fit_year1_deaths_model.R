@@ -253,6 +253,7 @@ run_varimp <- function(fit,
   total <- sum(dat[[outcome]] * dat$Population)
   merged_results[3:7] <- merged_results[3:7] * total
 
+  risk <- risk * total
   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .95))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
@@ -309,7 +310,10 @@ run_varimp <- function(fit,
   permuted_importance$diff <- round(as.numeric(permuted_importance$varimp_metric) - as.numeric(permuted_importance$additive_risk), 3)
   colnames(permuted_importance)[1] <- "Variable Combo"
 
-  test <- subset(permuted_importance, diff >= quantile(permuted_importance$diff , .90))
+  permuted_importance <- permuted_importance[order(permuted_importance$diff,decreasing = TRUE),]
+
+  test <- permuted_importance[1:10, ]#subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
+  test <- test[!is.na(test$diff),]
   test <- melt(test, id.vars=c("Variable Combo", "diff"))
   test$value <- round(as.numeric(test$value),3)
 
@@ -382,7 +386,7 @@ run_varimp <- function(fit,
   ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 14, height = 6)
   ggsave(here(paste("Figures/", "subgroup_imp_", label, ".png", sep = "")), sub_group_risk_plot, width = 8, height = 6)
 
-  return(list("indiv_results" = merged_results, "joint_results"= test))
+  return(list("indiv_results" = merged_results, "joint_results"= test, "model_risk" = risk))
 }
 
 
