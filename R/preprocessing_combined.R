@@ -4,7 +4,7 @@ source("R/util.R")
 
 ## thresholds
 NA_THRESH <- 0.80
-CORR_THRESH <- 0.99
+CORR_THRESH <- 0.95
 
 ## run census variable rename?
 CENSUS_DATA_RENAME <- FALSE
@@ -174,6 +174,7 @@ counties <- merge(counties,
 uv_data <- read_excel(RAW_DATA_PATH("uv-county.xlsx"))
 
 uv_data <- uv_data %>% select(COUNTY_FIPS, `UV_ Wh/m²`)
+colnames(uv_data)[2] <- "UV_metric"
 
 counties <- merge(counties,
                   uv_data, by.x = "FIPS", by.y = "COUNTY_FIPS")
@@ -317,60 +318,60 @@ counties_add_data_political <- merge(counties_add_data_political, racial_seg_cen
 ##################################################################################
 ####################### MOBILITY DATA PROCESSING #################################
 ##################################################################################
-summary_report_US <- read.csv(RAW_DATA_PATH("summary_report_US.txt"))
+# summary_report_US <- read.csv(RAW_DATA_PATH("summary_report_US.txt"))
+#
+# summary_report_US$date <- as.Date(summary_report_US$date, "%Y-%m-%d")
+#
+# summary_report_US <- summary_report_US %>%
+#   mutate(month = format(date, "%m"), year = format(date, "%Y"))
 
-summary_report_US$date <- as.Date(summary_report_US$date, "%Y-%m-%d")
 
-summary_report_US <- summary_report_US %>%
-  mutate(month = format(date, "%m"), year = format(date, "%Y"))
+# mobility_data_long <- as.data.frame(summary_report_US)
+# mobility_data_long <- subset(mobility_data_long,
+#                              select = -c(parks, transit.stations, transit,walking))
+#
+# mobility_data_long <- mobility_data_long %>% drop_na(retail.and.recreation:driving)
+#
+# names(mobility_data_long)[4:8] <- paste0("mobility_",
+#                                          gsub("\\.","\\_",names(mobility_data_long[4:8])))
+#
+# mobility_data_long <- mobility_data_long %>%
+#   pivot_longer(cols = starts_with("mobility_"),
+#                names_to = "type",
+#                names_prefix = "mobility_",
+#                values_to = "value",
+#                values_drop_na = TRUE)
+#
+# google_mobility_coefs <- mobility_data_long %>%
+#   group_by(state, year, month, type) %>%
+#   group_modify(~broom::tidy(lm(value ~ date, ., na.action=na.exclude))) %>%
+#   filter(term == "date") %>%
+#   select(state, month, estimate)
+#
+# google_mobility_coefs <- spread(google_mobility_coefs, type, estimate)
+#
+# google_mobility_coefs$date <- as.factor(paste(google_mobility_coefs$month, google_mobility_coefs$year, sep = ""))
+#
+# google_mobility_coefs <- subset(google_mobility_coefs, select = -c(month, year))
+# google_mobility_coefs_panel <- panel_data(google_mobility_coefs, id = state, wave = date)
+#
+# google_mobility_coefs_wide <- widen_panel(google_mobility_coefs_panel, separator = "_")
+#
+# google_mobility_coefs_wide$state <- state.abb[match(google_mobility_coefs_wide$state,state.name)]
 
-
-mobility_data_long <- as.data.frame(summary_report_US)
-mobility_data_long <- subset(mobility_data_long,
-                             select = -c(parks, transit.stations, transit,walking))
-
-mobility_data_long <- mobility_data_long %>% drop_na(retail.and.recreation:driving)
-
-names(mobility_data_long)[4:8] <- paste0("mobility_",
-                                         gsub("\\.","\\_",names(mobility_data_long[4:8])))
-
-mobility_data_long <- mobility_data_long %>%
-  pivot_longer(cols = starts_with("mobility_"),
-               names_to = "type",
-               names_prefix = "mobility_",
-               values_to = "value",
-               values_drop_na = TRUE)
-
-google_mobility_coefs <- mobility_data_long %>%
-  group_by(state, year, month, type) %>%
-  group_modify(~broom::tidy(lm(value ~ date, ., na.action=na.exclude))) %>%
-  filter(term == "date") %>%
-  select(state, month, estimate)
-
-google_mobility_coefs <- spread(google_mobility_coefs, type, estimate)
-
-google_mobility_coefs$date <- as.factor(paste(google_mobility_coefs$month, google_mobility_coefs$year, sep = ""))
-
-google_mobility_coefs <- subset(google_mobility_coefs, select = -c(month, year))
-google_mobility_coefs_panel <- panel_data(google_mobility_coefs, id = state, wave = date)
-
-google_mobility_coefs_wide <- widen_panel(google_mobility_coefs_panel, separator = "_")
-
-google_mobility_coefs_wide$state <- state.abb[match(google_mobility_coefs_wide$state,state.name)]
-
-fips_state_crosswalk <- read_excel(PROCESSED_DATA_PATH("fips_state_crosswalk.xlsx"))
-
-counties_add_data_political_xwalk <- merge(counties_add_data_political, fips_state_crosswalk, on = "FIPS")
-
-covid_data_unprocessed <- merge(counties_add_data_political_xwalk,
-                                                      google_mobility_coefs_wide, by.x = "State", by.y = "state", all.x)
+# fips_state_crosswalk <- read_excel(PROCESSED_DATA_PATH("fips_state_crosswalk.xlsx"))
+#
+# counties_add_data_political_xwalk <- merge(counties_add_data_political, fips_state_crosswalk, on = "FIPS")
+#
+# covid_data_unprocessed <- merge(counties_add_data_political_xwalk,
+#                                                       google_mobility_coefs_wide, by.x = "State", by.y = "state", all.x)
 
 
 # covid_data_unprocessed <- counties_add_data_political_xwalk_google_mob
 # covid_data_unprocessed <- covid_data_unprocessed[,-1]
 
 ## remove character values that aren't needed
-covid_data_unprocessed <- covid_data_unprocessed %>%
+covid_data_unprocessed <- counties_add_data_political %>%
   select(-c(Name, CTYNAME, NearestAirportName, NearestAirportOver5000000Name))
 
 char_columns <- sapply(covid_data_unprocessed, is.character)
@@ -396,7 +397,7 @@ LUR.air.pull.wide <- means.cross.year %>%
 
 
 ################ Mask Use Variable ##################
-mask.use.data <- read.csv(RAW_DATA_PATH('mask-use-by-county.csv'))
+# mask.use.data <- read.csv(RAW_DATA_PATH('mask-use-by-county.csv'))
 
 
 ################ Lead Exposure Variable ##################
@@ -533,10 +534,10 @@ incarceration_trends <- subset(incarceration_trends,
 
 ################ Merge Data ##################
 
-merge_dfs <- c("LUR.air.pull.wide", "mask.use.data", "lead_risk_score", "summarized_contaminants_ratio",
+merge_dfs <- c("LUR.air.pull.wide", "lead_risk_score", "summarized_contaminants_ratio",
                    "pesticide_avgs_by_year", "arsenic_violations")
 
-fips_columns <- c("fips", "COUNTYFP", "fips", "fips", "fips", "FIPS")
+fips_columns <- c("fips", "fips", "fips", "fips", "FIPS")
 
 for (i in 1:length(merge_dfs)){
   df <- get(merge_dfs[i])
