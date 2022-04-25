@@ -439,7 +439,7 @@ fit_sl_varimp <- function(outcome,label) {
                                data = covid_data_processed,
                                Data_Dictionary = Data_Dictionary,
                                label = label,
-                               thresh = 1.01)
+                               thresh =  1.01)
 
   SL_results <- list('fit' = sl_fit, 'var_imp' = var_importance)
 

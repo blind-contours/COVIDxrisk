@@ -11,8 +11,8 @@ library(readxl)
 
 ## thresholds
 na_thresh <- 0.80
-corr_thres <- 0.99
-## run census variable rename? 
+corr_thres <- 0.95
+## run census variable rename?
 census_data_rename <- FALSE
 
 
@@ -20,7 +20,7 @@ census_data_rename <- FALSE
 covid_data_unprocessed <- read_csv(here("Analysis/update_data/data/processed/covid_data_racial_scores_included.csv"))
 covid_data_unprocessed <- covid_data_unprocessed[,-2]
 ## remove character values that aren't needed
-covid_data_unprocessed <- covid_data_unprocessed %>% 
+covid_data_unprocessed <- covid_data_unprocessed %>%
   select(-c(Name, CTYNAME, NearestAirportName, NearestAirportOver5000000Name))
 
 covid_data_unprocessed[sapply(covid_data_unprocessed, is.character)] <- lapply(covid_data_unprocessed[sapply(covid_data_unprocessed, is.character)], as.factor)
@@ -28,11 +28,11 @@ covid_data_unprocessed[sapply(covid_data_unprocessed, is.character)] <- lapply(c
 # ## convert to numeric
 
 
-## these variables still need standardization by population: 
-covid_data_unprocessed$Premature.death.raw.value <- covid_data_unprocessed$Premature.death.raw.value / covid_data_unprocessed$Population 
-covid_data_unprocessed$HIV.prevalence.raw.value <- covid_data_unprocessed$HIV.prevalence.raw.value / covid_data_unprocessed$Population 
-covid_data_unprocessed$Sexually.transmitted.infections.raw.value <- covid_data_unprocessed$Sexually.transmitted.infections.raw.value / covid_data_unprocessed$Population 
-covid_data_unprocessed$Preventable.hospital.stays.raw.value <- covid_data_unprocessed$Preventable.hospital.stays.raw.value / covid_data_unprocessed$Population 
+## these variables still need standardization by population:
+covid_data_unprocessed$Premature.death.raw.value <- covid_data_unprocessed$Premature.death.raw.value / covid_data_unprocessed$Population
+covid_data_unprocessed$HIV.prevalence.raw.value <- covid_data_unprocessed$HIV.prevalence.raw.value / covid_data_unprocessed$Population
+covid_data_unprocessed$Sexually.transmitted.infections.raw.value <- covid_data_unprocessed$Sexually.transmitted.infections.raw.value / covid_data_unprocessed$Population
+covid_data_unprocessed$Preventable.hospital.stays.raw.value <- covid_data_unprocessed$Preventable.hospital.stays.raw.value / covid_data_unprocessed$Population
 
 
 ##############################################################################################
@@ -48,7 +48,7 @@ means.cross.year <- LUR.air.pollution.data %>%
   group_by(fips,pollutant) %>%
   summarize(mean_size = mean(pred_wght, na.rm = TRUE))
 
-LUR.air.pull.wide <- means.cross.year %>% 
+LUR.air.pull.wide <- means.cross.year %>%
   pivot_wider(names_from = pollutant, values_from = mean_size)
 
 ##############################################################################################
@@ -69,7 +69,7 @@ lead_risk_score <- lead_risk_score %>%
   mutate(fips = substr(id, 1, 5))
 
 
-lead_risk_score <- lead_risk_score %>% 
+lead_risk_score <- lead_risk_score %>%
   group_by(fips) %>%
   summarise(across(-(c(name, id)), mean, na.rm = TRUE))
 
@@ -90,7 +90,7 @@ summarized_contaminants_ratio$fips <- summarized_contaminants_raw$fips
 pesticide_data <- read.csv(here('Analysis/update_data/data/raw/EPest_county_estimates_2013_2017_v2.txt'), sep = "\t")
 
 pesticide_data <- pesticide_data %>%
-  rowwise() %>% mutate(kg_avg=mean(c(EPEST_LOW_KG, EPEST_HIGH_KG), na.rm=T)) 
+  rowwise() %>% mutate(kg_avg=mean(c(EPEST_LOW_KG, EPEST_HIGH_KG), na.rm=T))
 
 pesticide_data$fips <-paste(pesticide_data$STATE_FIPS_CODE, str_pad(pesticide_data$COUNTY_FIPS_CODE, 3, pad = "0"), sep = "")
 
@@ -99,7 +99,7 @@ pesticide_avgs_by_year <- pesticide_data %>%
   summarize(mean_kg = mean(kg_avg, na.rm = TRUE))
 
 
-pesticide_avgs_by_year <- pesticide_avgs_by_year %>% 
+pesticide_avgs_by_year <- pesticide_avgs_by_year %>%
   pivot_wider(names_from = COMPOUND, values_from = mean_kg)
 
 pesticide_avgs_by_year <- pesticide_avgs_by_year[, which(colMeans(!is.na(pesticide_avgs_by_year)) > na_thresh)]
@@ -174,28 +174,28 @@ incarceration_trends <- incarceration_trends %>%
 
 incarceration_trends <- incarceration_trends[, which(colMeans(!is.na(incarceration_trends)) > na_thresh)]
 
-## remove variables that are not as relevant to the question of interest: 
+## remove variables that are not as relevant to the question of interest:
 
-incarceration_trends <- subset(incarceration_trends, select = c(fips, 
+incarceration_trends <- subset(incarceration_trends, select = c(fips,
                                                                 county_name,
-                                                                total_pop, 
-                                                                total_pop_15to64, 
-                                                                female_pop_15to64, 
+                                                                total_pop,
+                                                                total_pop_15to64,
+                                                                female_pop_15to64,
                                                                 male_pop_15to64,
-                                                                aapi_pop_15to64, 
-                                                                black_pop_15to64, 
-                                                                latinx_pop_15to64, 
-                                                                native_pop_15to64, 
-                                                                white_pop_15to64, 
-                                                                total_jail_pop_rate, 
-                                                                female_jail_pop_rate, 
-                                                                male_jail_pop_rate, 
-                                                                aapi_jail_pop_rate, 
+                                                                aapi_pop_15to64,
+                                                                black_pop_15to64,
+                                                                latinx_pop_15to64,
+                                                                native_pop_15to64,
+                                                                white_pop_15to64,
+                                                                total_jail_pop_rate,
+                                                                female_jail_pop_rate,
+                                                                male_jail_pop_rate,
+                                                                aapi_jail_pop_rate,
                                                                 black_jail_pop_rate,
                                                                 latinx_jail_pop_rate,
                                                                 native_jail_pop_rate,
                                                                 white_jail_pop_rate,
-                                                                total_jail_adm_rate, 
+                                                                total_jail_adm_rate,
                                                                 total_jail_pretrial_rate))
 
 incarceration_trends$black_white_jail_pop_rate <- incarceration_trends$black_jail_pop_rate / incarceration_trends$white_jail_pop_rate
@@ -214,10 +214,10 @@ incarceration_trends$black_pop_15to64_ratio <- (incarceration_trends$black_pop_1
 incarceration_trends$latinx_pop_15to64_ratio <- (incarceration_trends$latinx_pop_15to64 / incarceration_trends$total_pop) / incarceration_trends$white_pop_15to64_ratio
 incarceration_trends$native_pop_15to64_ratio <- (incarceration_trends$native_pop_15to64 / incarceration_trends$total_pop) / incarceration_trends$white_pop_15to64_ratio
 
-incarceration_trends <- subset(incarceration_trends, select = -c(total_pop, 
+incarceration_trends <- subset(incarceration_trends, select = -c(total_pop,
                                                                  total_pop_15to64,
-                                                                 female_pop_15to64, 
-                                                                 male_pop_15to64, 
+                                                                 female_pop_15to64,
+                                                                 male_pop_15to64,
                                                                  aapi_pop_15to64,
                                                                  black_pop_15to64,
                                                                  latinx_pop_15to64,
@@ -272,13 +272,13 @@ covid_data_unprocessed <- subset(covid_data_unprocessed, select=-c(state_code, n
 ##############################################################################################
 
 
-# get data dictionary 
+# get data dictionary
 Data_Dictionary <- read_excel(here("Analysis/update_data/data/processed/Data_Dictionary.xlsx"))
 
-vars_2_keep <- Data_Dictionary %>% 
+vars_2_keep <- Data_Dictionary %>%
   filter(Keep == "Yes") %>% select(`Variable Name`)
 
-covid_data_unprocessed <-covid_data_unprocessed %>% 
+covid_data_unprocessed <-covid_data_unprocessed %>%
   select(vars_2_keep$`Variable Name`)
 
 ## remove columns with NA greater than threshold
@@ -304,7 +304,7 @@ if (length(nz_idx_vector) > 0) {
 }
 
 
-## check structures of data 
+## check structures of data
 
 str(covid_data_processed)
 char_vars <- names(covid_data_processed[, sapply(covid_data_processed, class) == 'character'])
@@ -313,10 +313,10 @@ covid_data_processed <- data.frame(lapply(covid_data_processed,
                                             function(x) as.numeric(as.character(x))))
 
 
-outcomes <- c("CountyRelativeDay100Cases", 
-              "TotalCasesUpToDate", 
-              "CountyRelativeDay100Deaths", 
-              "TotalDeathsUpToDate", 
+outcomes <- c("CountyRelativeDay100Cases",
+              "TotalCasesUpToDate",
+              "CountyRelativeDay100Deaths",
+              "TotalDeathsUpToDate",
               "FirstCaseDay",
               "Deathsat1year",
               "Casesat1year")
@@ -332,7 +332,7 @@ number_na
 ## only a few, we will remove these at the last step
 
 ## remove outcomes
-covid_data_processed_features <- covid_data_processed %>% 
+covid_data_processed_features <- covid_data_processed %>%
   select(-outcomes)
 
 
@@ -371,4 +371,3 @@ write.csv(final_covid_processed, file = here("Analysis/update_data/data/processe
 
 
 
-  
