@@ -280,7 +280,6 @@ run_varimp <- function(fit,
       subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "validation")
       subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "validation")
 
-
       varimp_metric <- mean(subcat_75_obs_predictions - subcat_25_obs_predictions)
       result <- cbind(i, varimp_metric)
       return(result)
@@ -372,11 +371,13 @@ run_varimp <- function(fit,
 
   test <- permuted_importance[1:10, ]#subset(permuted_importance, diff >= quantile(permuted_importance$diff , .95))
   test <- test[!is.na(test$diff),]
-  test <- melt(test, id.vars=c("Variable Combo", "diff"))
-  test$value <- round(as.numeric(test$value),3)
 
-  test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
-  colnames(test)[3] <- "Type"
+  test <- test[, c(1,4)]
+  # test <- melt(test, id.vars=c("Variable Combo", "diff"))
+  test$diff <- round(as.numeric(test$diff),3)
+
+  # test$variable <- factor(test$variable, levels=c("varimp_metric", "additive_risk"), labels=c("Joint Risk", "Additive Risk"))
+  # colnames(test)[3] <- "Type"
 
 
   risk_plot <- merged_results %>%
@@ -416,13 +417,10 @@ run_varimp <- function(fit,
     theme_bw(base_size = 12)
 
   joint_permutation_plot <- test %>%
-    group_by(`Variable Combo`) %>%
-    ggplot(aes(x= value, y= reorder(`Variable Combo`,value))) +
-    geom_line(aes(group = `Variable Combo`),color="grey") +
-    geom_point(aes(color=Type), size=4) +
-    labs(y="Combination") +
-    ylab("County Features") +
-    xlab("Model Risk Ratio") +
+    ggplot(aes(`Variable Combo`, diff)) +
+    geom_segment( aes(xend=`Variable Combo`, yend=0)) +
+    geom_point(size=4, color="chartreuse4") +
+    coord_flip() +
     theme_bw(base_size = 12)
 
   sub_group_risk_plot <- subgroup_importance_ordered %>%

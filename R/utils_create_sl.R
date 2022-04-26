@@ -54,6 +54,13 @@ create_superlearner <- function(){
   lrnr_ranger400 <- make_learner(Lrnr_ranger, num.trees = 400)
   lrnr_ranger500 <- make_learner(Lrnr_ranger, num.trees = 500)
 
+  lrnr_caret_nnet <- make_learner(Lrnr_caret, algorithm = "nnet")
+  lrnr_caret_bartMachine <- make_learner(Lrnr_caret,
+                                         algorithm = "bartMachine",
+                                         method = "boot", metric = "Accuracy",
+                                         tuneLength = 10
+  )
+
 
 
   grid_params <- list(max_depth = c(2, 4, 6, 8, 10, 12),
@@ -77,8 +84,6 @@ create_superlearner <- function(){
   full_lrn_poly_6 <- Lrnr_polspline$new(knots = 6)
   full_lrn_poly_7 <- Lrnr_polspline$new(knots = 7)
 
-
-
   stack <- make_learner(
     Stack,
     mean_lrnr,
@@ -91,6 +96,8 @@ create_superlearner <- function(){
     lrnr_ranger300,
     lrnr_ranger400,
     lrnr_ranger500,
+    lrnr_caret_nnet,
+    lrnr_caret_bartMachine,
     lrnr_lasso,
     lrnr_ridge,
     lrnr_elasticnet,
@@ -115,7 +122,6 @@ create_superlearner <- function(){
     full_lrn_poly_6,
     full_lrn_poly_7
   )
-
 
   discrete_sl_metalrn <- Lrnr_cv_selector$new()
 
