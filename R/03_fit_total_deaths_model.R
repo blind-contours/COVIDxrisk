@@ -308,9 +308,8 @@ run_varimp <- function(fit,
 
   merged_results$X<- Data_Dictionary$`Nice Label`[match(merged_results$X, Data_Dictionary$`Variable Name`)]
 
-  merged_results[,2:7] <- sapply(merged_results[,2:7], as.numeric)
-
-  merged_results[3:7] <- merged_results[3:7] * total
+  merged_results[,2:6] <- sapply(merged_results[,2:6], as.numeric)
+  merged_results[3:6] <- merged_results[3:6] * total
 
   risk <- risk * total
   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .95))$X, m = m)
