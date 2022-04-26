@@ -398,7 +398,7 @@ run_varimp <- function(fit,
     filter(risk_ratio > thresh)  %>%
     mutate(name=factor(X, levels=X))
 
-  quantile_results_long <- melt(merged_results_plot[c(3:8)], id.vars="name")
+  quantile_results_long <- melt(merged_results_plot[c(3:7)], id.vars="name")
 
   quantiles_plot <- quantile_results_long %>%
     filter(variable !=  "Interaction Metric") %>%
