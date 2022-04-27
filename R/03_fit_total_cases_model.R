@@ -455,7 +455,7 @@ run_varimp <- function(fit,
   ggsave(here(paste("Figures/", "subgroup_quantile_imp_", label, ".png", sep = "")), sub_group_quantile_plot, width = 8, height = 6)
 
 
-  return(list("indiv_results" = merged_results, "joint_results"= test, "model_risk" = risk_total))
+  return(list("indiv_results" = merged_results, "joint_results"= permuted_importance, "model_risk" = risk_total))
 }
 
 
