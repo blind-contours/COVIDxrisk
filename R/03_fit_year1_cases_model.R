@@ -1,7 +1,7 @@
 library(here)
 source(here("R/util.R"))
 plan(multisession)
-cpus <- 20
+cpus <- 5
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_flag = FALSE){
   if (subcategory_flag == FALSE) {
@@ -310,7 +310,7 @@ run_varimp <- function(fit,
   merged_results[,2:6] <- sapply(merged_results[,2:6], as.numeric)
   merged_results[3:6] <- merged_results[3:6] * total
 
-  risk <- risk * total
+  risk_total <- risk * total
   variable_combinations <- combn(subset(risk_results, risk_ratio > quantile(merged_results$risk_ratio, .95))$X, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
@@ -455,7 +455,7 @@ run_varimp <- function(fit,
   ggsave(here(paste("Figures/", "subgroup_quantile_imp_", label, ".png", sep = "")), sub_group_quantile_plot, width = 8, height = 6)
 
 
-  return(list("indiv_results" = merged_results, "joint_results"= test, "model_risk" = risk))
+  return(list("indiv_results" = merged_results, "joint_results"= test, "model_risk" = risk_total))
 }
 
 
