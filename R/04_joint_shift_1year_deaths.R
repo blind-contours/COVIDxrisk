@@ -1,7 +1,6 @@
 library(here)
 source(here("R/util.R"))
-cpus <- 5
-mcoptions <- list(preschedule=FALSE, set.seed=FALSE)
+cpus <- 20
 
 doParallel::registerDoParallel(cpus)
 future::plan(future::multisession, gc = TRUE)
