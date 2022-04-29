@@ -293,7 +293,7 @@ joint_impact_day100_deaths <- bootstrap_marginal_predictions(target_variable = t
                                                              covars = covars,
                                                              percents = percents,
                                                              pop = data_original$Population,
-                                                             boot_num = 20)
+                                                             boot_num = 10)
 
 
 

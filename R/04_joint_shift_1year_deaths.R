@@ -290,5 +290,5 @@ joint_impact_day100_cases <- bootstrap_marginal_predictions(
   data_original = data_original,
   covars = covars,
   percents = percents,
-  boot_num = 3
+  boot_num = 10
 )
