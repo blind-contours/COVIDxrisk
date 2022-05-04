@@ -11,7 +11,9 @@
 
 # Number of nodes for use case:
 #SBATCH --nodes=1
-#
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=20
+
 # Wall clock limit:
 #SBATCH --time 6:00:00
 #
@@ -20,5 +22,5 @@ module load r/4.0.3
 OMP_NUM_THREADS=1
 ### for foreach+doSNOW ###
 cd /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
- 
+
 R CMD BATCH --no-save R/04_joint_shift_1year_cases.R logs/cases_1year_forward_shift.Rout
