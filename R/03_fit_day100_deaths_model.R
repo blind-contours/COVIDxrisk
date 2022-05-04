@@ -6,4 +6,3 @@ plan(multisession, workers = cpus)
 
 set.seed(5929922)
 Deathsday100 <- fit_sl_varimp(outcome = "CountyRelativeDay100Deaths", label = "COVID-19 Deaths at Day 100", num_boot = 10)
-

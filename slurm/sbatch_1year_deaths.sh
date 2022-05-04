@@ -14,10 +14,9 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=20
-
 #
 # Wall clock limit:
-#SBATCH --time 4:00:00
+#SBATCH --time 7:00:00
 #
 ## Command(s) to run (example):
 module load r/4.0.3
