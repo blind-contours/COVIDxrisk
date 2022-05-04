@@ -1,5 +1,4 @@
 
-
 p_val_fun <- function(x) {
   SE <- (x[3] - x[1]) / (2 * 1.96)
   z <- x[2] / SE
