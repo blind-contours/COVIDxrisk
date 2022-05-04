@@ -8,34 +8,11 @@ create_superlearner <- function(){
   ## set up the custom learners and some standard ones as well
   ## set up baseline mean to make sure our other learners are working better than mean
   mean_lrnr <- Lrnr_mean$new()
-  ## standard poisson GLM I wrote
-  # Lrnr_david_pois <- make_learner(Lrnr_david_pois)
-
-  ## custom xgboost for poisson outcome with varying parameters (should try grid as well)
-  # Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
-  # Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
-  # Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
-
-  ## custom ridge and lass from glmnet poisson
-  # ridge_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 0, nfolds = 10)
-  # lasso_lrnr_pois <- make_learner(Lrnr_david_glmnet_pois,alpha = 1, nfolds = 10)
-
-  ## custom gbm and glmnet for poisson with varying parameters
-  # Lrnr_david_gbm_pois <- make_learner(Lrnr_david_gbm_pois)
-  # Lrnr_david_glmnet_pois_25 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.25, nfolds = 3)
-  # Lrnr_david_glmnet_pois_50 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.50, nfolds = 3)
-  # Lrnr_david_glmnet_pois_75 <- make_learner(Lrnr_david_glmnet_pois, alpha = 0.75, nfolds = 3)
 
   lrnr_ranger100 <- make_learner(Lrnr_ranger, num.trees = 100)
   lrnr_gam <- make_learner(Lrnr_gam)
   lrnr_polspline <- make_learner(Lrnr_polspline)
 
-  ## create the stack of learners
-
-  ## custom xgboost for poisson outcome with varying parameters (should try grid as well)
-  # Lrnr_david_xgboost_pois_850 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 8,  nrounds = 50)
-  # Lrnr_david_xgboost_pois_5100 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 5,  nrounds = 100)
-  # Lrnr_david_xgboost_pois_10200 <- make_learner(Lrnr_david_xgboost_pois, max_depth = 10,  nrounds = 200)
 
   # choose base learners
   lrnr_glm <- make_learner(Lrnr_glm)
@@ -53,14 +30,6 @@ create_superlearner <- function(){
   lrnr_ranger300 <- make_learner(Lrnr_ranger, num.trees = 300)
   lrnr_ranger400 <- make_learner(Lrnr_ranger, num.trees = 400)
   lrnr_ranger500 <- make_learner(Lrnr_ranger, num.trees = 500)
-
-  lrnr_caret_nnet <- make_learner(Lrnr_caret, algorithm = "nnet")
-  lrnr_caret_bartMachine <- make_learner(Lrnr_caret,
-                                         algorithm = "bartMachine",
-                                         method = "boot", metric = "Accuracy",
-                                         tuneLength = 10
-  )
-
 
 
   grid_params <- list(max_depth = c(2, 4, 6, 8, 10, 12),
@@ -80,14 +49,10 @@ create_superlearner <- function(){
   full_lrn_poly_2 <- Lrnr_polspline$new(knots = 2)
   full_lrn_poly_3 <- Lrnr_polspline$new(knots = 3)
   full_lrn_poly_4 <- Lrnr_polspline$new(knots = 4)
-  full_lrn_poly_5 <- Lrnr_polspline$new(knots = 5)
-  full_lrn_poly_6 <- Lrnr_polspline$new(knots = 6)
-  full_lrn_poly_7 <- Lrnr_polspline$new(knots = 7)
 
   stack <- make_learner(
     Stack,
     mean_lrnr,
-    lrnr_polspline,
     lrnr_glm,
     lrnr_ranger10,
     lrnr_ranger50,
@@ -96,12 +61,16 @@ create_superlearner <- function(){
     lrnr_ranger300,
     lrnr_ranger400,
     lrnr_ranger500,
-    lrnr_caret_nnet,
-    lrnr_caret_bartMachine,
     lrnr_lasso,
     lrnr_ridge,
     lrnr_elasticnet,
     lrnr_ranger100,
+    xgb_learners[[1]],
+    xgb_learners[[5]],
+    xgb_learners[[10]],
+    xgb_learners[[15]],
+    xgb_learners[[20]],
+    xgb_learners[[25]],
     xgb_learners[[31]],
     xgb_learners[[32]],
     xgb_learners[[33]],
@@ -113,14 +82,8 @@ create_superlearner <- function(){
     full_lrn_earth_1,
     full_lrn_earth_2,
     full_lrn_earth_3,
-    full_lrn_earth_4,
-    full_lrn_poly_1,
-    full_lrn_poly_2,
-    full_lrn_poly_3,
-    full_lrn_poly_4,
-    full_lrn_poly_5,
-    full_lrn_poly_6,
-    full_lrn_poly_7
+    full_lrn_earth_4
+
   )
 
   discrete_sl_metalrn <- Lrnr_cv_selector$new()
