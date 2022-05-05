@@ -7,7 +7,7 @@ check_packages = function(p){
 
 packages <- c("furrr", "caret", "rvest", "dplyr",  "origami", "knitr", "ggplot2", "R6", "gam", "gbm", "remotes",
               "tidyverse", "here", "tidyr", "readxl", "pROC", "imputeTS", "data.table", "xgboost", "zeallot",
-              "pheatmap", "ggfortify", "gtools", "readxl", "readr", "origami", "ggplot2", "R6", "data.table", "cowplot", "future", "parallel", "doParallel")
+              "pheatmap", "ggfortify", "gtools", "readxl", "readr", "origami", "ggplot2", "R6", "data.table", "cowplot", "future")
 
 lapply(packages, check_packages)
 
