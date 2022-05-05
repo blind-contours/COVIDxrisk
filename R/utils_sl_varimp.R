@@ -81,7 +81,6 @@ run_varimp <- function(fit,
         covariates = covars
       )
 
-
       resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "validation")
       resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "validation")
 
@@ -91,7 +90,7 @@ run_varimp <- function(fit,
     }
 
     pval <- (1 + sum(unlist(boot_results_list) <= 1)) / (num_boot + 1)
-    quantiles <- quantile(unlist(boot_results_list), probs = c(0.25, 0.5, 0.75))
+    quantiles <- quantile(unlist(boot_results_list), probs <- c(0.025, 0.50, 0.975))
 
     results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = pval)
 
@@ -158,7 +157,7 @@ run_varimp <- function(fit,
     }
 
     pval <- (1 + sum(unlist(boot_results_list) <= 1)) / (num_boot + 1)
-    quantiles <- quantile(unlist(boot_results_list), probs = c(0.25, 0.5, 0.75))
+    quantiles <- quantile(unlist(boot_results_list), probs <- c(0.025, 0.50, 0.975))
 
     results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = pval)
 
@@ -269,7 +268,7 @@ run_varimp <- function(fit,
 
     quantile_boot_results <- bind_rows(quantile_boot_results_list)
 
-    quantile_boot_results_CIs <- t(sapply(quantile_boot_results, quantile, probs = c(0.25, 0.5, 0.75)))
+    quantile_boot_results_CIs <- t(sapply(quantile_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
     pvals <- as.data.frame(apply(quantile_boot_results_CIs, 1, p_val_fun))
     result <- bind_cols(i, quantile_boot_results_CIs, pvals)
     result$Condition <- rownames(result)
@@ -353,7 +352,7 @@ run_varimp <- function(fit,
       quantile_subcat_boot_results_list[[boot]] <- varimp_metric
     }
 
-    quantiles <- quantile(unlist(quantile_subcat_boot_results_list), probs = c(0.25, 0.5, 0.75))
+    quantiles <- quantile(unlist(quantile_subcat_boot_results_list), probs <- c(0.025, 0.50, 0.975))
     p_val <- p_val_fun(quantiles)
 
     results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = pval)
@@ -432,7 +431,7 @@ run_varimp <- function(fit,
     mips_boot_results <- bind_rows(mips_boot_results_list)
     mips_boot_results$MIP <- mips_boot_results$Joint_Risk - mips_boot_results$Additive_Risk
 
-    MIPS_CI <- as.data.frame(t(quantile(mips_boot_results$MIP, probs = c(0.25, 0.5, 0.75))))
+    MIPS_CI <- as.data.frame(t(quantile(mips_boot_results$MIP, probs <- c(0.025, 0.50, 0.975))))
     MIPS_pval <- apply(MIPS_CI, 1, p_val_fun)
 
     mips_result <- list(
