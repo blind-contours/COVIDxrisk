@@ -1,3 +1,42 @@
+create_sl <- function(data = covid_data_processed, outcome = outcome, all_outcomes = all_outcomes) {
+  covars <- colnames(data)[-which(names(data) %in% c(
+    all_outcomes,
+    "fips",
+    "county_names"
+  ))]
+
+  task <- make_sl3_Task(
+    data = data,
+    covariates = covars,
+    outcome = outcome,
+    folds = origami::make_folds(data, fold_fun = folds_vfold, V = 10)
+  )
+
+  discrete_sl <- source(here("R/utils_create_sl.R"))
+  discrete_sl <- discrete_sl$value()
+  ## fit the sl3 object
+  sl_fit <- discrete_sl$train(task)
+
+  return(list("sl_fit" = sl_fit, "covars" = covars))
+}
+
+load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv", path_data_dict = "Data_Dictionary.xlsx") {
+  ## load data
+  covid_data_processed <- read.csv(PROCESSED_DATA_PATH(path_data), check.names = FALSE)
+  covid_data_processed <- covid_data_processed[, -1]
+
+  Data_Dictionary <- read_excel(PROCESSED_DATA_PATH(path_data_dict))
+  Data_Dictionary <- Data_Dictionary[Data_Dictionary$`Variable Name` %in% colnames(covid_data_processed), ]
+
+  covid_data_processed$CountyRelativeDay100Cases <- covid_data_processed$CountyRelativeDay100Cases / covid_data_processed$Population
+  covid_data_processed$TotalCasesUpToDate <- covid_data_processed$TotalCasesUpToDate / covid_data_processed$Population
+  covid_data_processed$CountyRelativeDay100Deaths <- covid_data_processed$CountyRelativeDay100Deaths / covid_data_processed$Population
+  covid_data_processed$TotalDeathsUpToDate <- covid_data_processed$TotalDeathsUpToDate / covid_data_processed$Population
+  covid_data_processed$Deathsat1year <- covid_data_processed$Deathsat1year / covid_data_processed$Population
+  covid_data_processed$Casesat1year <- covid_data_processed$Casesat1year / covid_data_processed$Population
+
+  return(list("data" = covid_data_processed, "data_dictionary" = Data_Dictionary))
+}
 
 p_val_fun <- function(x) {
   SE <- (x[3] - x[1]) / (2 * 1.96)
@@ -48,6 +87,8 @@ run_varimp <- function(fit,
   preds <- fit$predict_fold(task, fold_number = "validation")
   risk <- mean(loss(preds, Y))
   risk_rescaled <- mean(sqrt((Y - preds)^2) * dat$Population)
+  total <- sum(dat[[outcome]] * dat$Population)
+
 
   Data_Dictionary_Used <- Data_Dictionary %>%
     filter(Keep == "Yes") %>%
@@ -99,22 +140,6 @@ run_varimp <- function(fit,
 
   risk_importance$Variable <- Data_Dictionary$`Nice Label`[match(risk_importance$Variable, Data_Dictionary$`Variable Name`)]
 
-  risk_plot <- risk_importance %>%
-    arrange(Est) %>%
-    # First sort by val. This sort the dataframe but NOT the factor levels
-    filter(Est > 1.0) %>%
-    mutate(name = factor(Variable, levels = Variable)) %>%
-    # This trick update the factor levels
-    ggplot(aes(x = name, y = Est)) +
-    geom_point(size = 4, color = "orange") +
-    geom_errorbar(aes(ymin = `Lower_CI`, ymax = `Upper_CI`), width = .1) +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("Model Risk Ratio") +
-    xlab("County Feature")
-
-  ggsave(here(paste("Figures/", "varimp_", label, ".png", sep = "")), risk_plot, width = 8, height = 6)
-
   print("Finished LOO-Risk Importance")
 
   ##########################################################################################
@@ -164,18 +189,7 @@ run_varimp <- function(fit,
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  sub_group_risk_plot <- subgroup_risk_importance %>%
-    arrange(Est) %>% # First sort by val. This sort the dataframe but NOT the factor levels
-    mutate(name = factor(Variable, levels = Variable)) %>% # This trick update the factor levels
-    ggplot(aes(x = name, y = Est)) +
-    geom_errorbar(aes(ymin = `Lower_CI`, ymax = `Upper_CI`), size = 0.8, width = 0.2) +
-    geom_point(size = 4, color = "orange") +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("Model Risk Ratio") +
-    xlab("County-Level Risk Subgroups")
-
-  ggsave(here(paste("Figures/", "subgroup_imp_", label, ".png", sep = "")), sub_group_risk_plot, width = 8, height = 6)
+  print("Finished Subgroup-Risk Importance")
 
   ##############################################################################
   ######################## QUANTILE INTERACTIONS ###############################
@@ -279,38 +293,11 @@ run_varimp <- function(fit,
 
   colnames(quantile_importance) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Condition")
   quantile_importance$Variable <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
-  quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
 
+  quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
   quantile_results_nonzero <- quantile_importance[rowSums(quantile_importance[, 2:4]) != 0, ]
 
-  quantile_preds_plot <- quantile_results_nonzero %>%
-    filter(Condition != "Interaction") %>%
-    ggplot(aes(x = Variable, y = Est, colour = factor(Condition))) +
-    geom_point(size = 2) +
-    geom_errorbar(aes(ymin = `Lower_CI`, ymax = `Upper_CI`), width = .1) +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("Quantile-Based Predictions") +
-    xlab("County Feature") +
-    scale_y_continuous(breaks = scales::pretty_breaks(n = 10))
-
-  quantile_intxn_plot <- quantile_results_nonzero %>%
-    filter(Condition == "Interaction") %>%
-    mutate(name = factor(Variable, levels = Variable)) %>%
-    # This trick update the factor levels
-    ggplot(aes(x = name, y = Est)) +
-    geom_point(size = 4, color = "blue") +
-    geom_errorbar(aes(ymin = `Lower_CI`, ymax = `Upper_CI`), width = .1) +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("Quantile-Based Interactions") +
-    xlab("County Feature") +
-    scale_y_continuous(breaks = scales::pretty_breaks(n = 10))
-
-  ggsave(here(paste("Figures/", "quantile_imp_", label, ".png", sep = "")), quantile_preds_plot, width = 8, height = 6)
-  ggsave(here(paste("Figures/", "interaction_imp_", label, ".png", sep = "")), quantile_intxn_plot, width = 8, height = 6)
-
-  print("Finished Quantile Interaction Search")
+  print("Finished Quantile Predictions")
 
   #####################################################################################
   ######################## SUBGROUP QUANTILE IMPORTANCE ###############################
@@ -360,28 +347,15 @@ run_varimp <- function(fit,
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  total <- sum(dat[[outcome]] * dat$Population)
-
   subgroup_quantile_importance[, c(2:4)] <- as.data.frame(sapply(subgroup_quantile_importance[, c(2:4)], as.numeric) * total)
 
-  sub_group_quantile_plot <- subgroup_quantile_importance %>%
-    arrange(Est) %>%
-    mutate(name = factor(X, levels = X)) %>%
-    ggplot(aes(x = name, y = `Est`)) +
-    geom_errorbar(aes(ymin = `Lower CI`, ymax = `Upper CI`), size = 0.8, width = 0.2) +
-    geom_point(size = 3, color = "red") +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("All Sub-Group 75th - 25th Quantile Predictions") +
-    xlab("County Feature")
-
-  ggsave(here(paste("Figures/", "subgroup_quantile_imp_", label, ".png", sep = "")), sub_group_quantile_plot, width = 8, height = 6)
+  print("Finished Subgroup-Quantile Importance")
 
   ##############################################################################
   ######################## JOINT PERM INTERACTIONS #############################
   ##############################################################################
 
-  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 0.99)$Variable, m = m)
+  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 1.0)$Variable, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -445,19 +419,8 @@ run_varimp <- function(fit,
     return(mips_result)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  joint_permutation_plot <- permuted_importance %>%
-    ggplot(aes(`Nice Label`, Est)) +
-    geom_point(size = 4, color = "chartreuse4") +
-    geom_errorbar(aes(ymin = `Lower CI`, ymax = `Upper CI`), width = .1) +
-    coord_flip() +
-    theme_bw(base_size = 12) +
-    ylab("Joint vs. Additive Individual Risk Difference") +
-    xlab("Risk Combination")
-
 
   print("Finished Joint Permutation")
-
-  ggsave(here(paste("Figures/", "jointimp_", label, ".png", sep = "")), joint_permutation_plot, width = 14, height = 6)
 
   return(list(
     "Var_Risk_Results" = risk_importance,
@@ -470,48 +433,6 @@ run_varimp <- function(fit,
 }
 
 fit_sl_varimp <- function(outcome, label, num_boot) {
-
-  ## load data
-  covid_data_processed <- read.csv(PROCESSED_DATA_PATH("cleaned_covid_data_final_Mar_31_22.csv"), check.names = FALSE)
-  covid_data_processed <- covid_data_processed[, -1]
-
-  Data_Dictionary <- read_excel(PROCESSED_DATA_PATH("Data_Dictionary.xlsx"))
-  Data_Dictionary <- Data_Dictionary[Data_Dictionary$`Variable Name` %in% colnames(covid_data_processed), ]
-
-  covid_data_processed$CountyRelativeDay100Cases <- covid_data_processed$CountyRelativeDay100Cases / covid_data_processed$Population
-  covid_data_processed$TotalCasesUpToDate <- covid_data_processed$TotalCasesUpToDate / covid_data_processed$Population
-  covid_data_processed$CountyRelativeDay100Deaths <- covid_data_processed$CountyRelativeDay100Deaths / covid_data_processed$Population
-  covid_data_processed$TotalDeathsUpToDate <- covid_data_processed$TotalDeathsUpToDate / covid_data_processed$Population
-  covid_data_processed$Deathsat1year <- covid_data_processed$Deathsat1year / covid_data_processed$Population
-  covid_data_processed$Casesat1year <- covid_data_processed$Casesat1year / covid_data_processed$Population
-
-  outcomes <- c(
-    "CountyRelativeDay100Cases",
-    "TotalCasesUpToDate",
-    "CountyRelativeDay100Deaths",
-    "TotalDeathsUpToDate",
-    "Deathsat1year",
-    "Casesat1year"
-  )
-
-
-  covars <- colnames(covid_data_processed)[-which(names(covid_data_processed) %in% c(
-    outcomes,
-    "fips",
-    "county_names"
-  ))]
-
-  task <- make_sl3_Task(
-    data = covid_data_processed,
-    covariates = covars,
-    outcome = outcome,
-    folds = origami::make_folds(covid_data_processed, fold_fun = folds_vfold, V = 10)
-  )
-
-  discrete_sl <- source(here("R/utils_create_sl.R"))
-  discrete_sl <- discrete_sl$value()
-  ## fit the sl3 object
-  sl_fit <- discrete_sl$train(task)
 
   ## get variable importance from the sl3 object
   var_importance <- run_varimp(
@@ -527,7 +448,5 @@ fit_sl_varimp <- function(outcome, label, num_boot) {
 
   SL_results <- list("fit" = sl_fit, "var_imp" = var_importance)
 
-  saveRDS(SL_results, here(paste("Models/", outcome, ".RDS", sep = "")))
-
-  return(NULL)
+  return(SL_results)
 }
