@@ -14,9 +14,14 @@
 #SBATCH --cpus-per-task=20
 #SBATCH --exclusive
 #
-# Wall clock limit:
-#SBATCH --time 7:00:00
+# Wall clock limit ('0' for unlimited):
+#SBATCH --time=96:00:00
 #
+# Mail type:
+#SBATCH --mail-type=all
+#
+# Mail user:
+#SBATCH --mail-user=david_mccoy@berkeley.edu
 ## Command(s) to run (example):
 module load r/4.0.3
 cd /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
