@@ -169,7 +169,6 @@ subcat_imp_risk <- function(subcategories, data,
   ##########################################################################################
 
   X <- unique(subcategories)
-  X <- sample(X, 3)
   X <- X[X != "outcome"]
 
   subgroup_risk_importance <- furrr::future_map_dfr(X, function(i) {
@@ -345,7 +344,6 @@ subcat_imp_quantile <- function(subcategories,
   #####################################################################################
 
   X <- unique(subcategories)
-  X <- sample(X, 3)
   X <- X[X != "outcome"]
 
   subgroup_quantile_importance <- furrr::future_map_dfr(X, function(i) {
