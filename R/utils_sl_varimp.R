@@ -77,7 +77,6 @@ load_model <- function(fit,
                        outcome,
                        data = covid_data_processed,
                        Data_Dictionary = Data_Dictionary) {
-
   task <- fit$training_task
   dat <- task$data
   X <- task$nodes$covariates
@@ -95,15 +94,18 @@ load_model <- function(fit,
   subcategories <- Data_Dictionary_Used$Label
   variable_list <- Data_Dictionary_Used$`Variable Name`
 
-  return_list <- list("Task" = task,
-                      "Data" = data,
-                      "X" = X,
-                      "Y" = Y,
-                      "risk" = risk,
-                      "total" = total,
-                      "Data_Dictionary_Used" = Data_Dictionary_Used,
-                      "Subcategories" = subcategories,
-                      "Variable_list" = variable_list)
+  return_list <- list(
+    "Task" = task,
+    "Data" = data,
+    "X" = X,
+    "Y" = Y,
+    "risk" = risk,
+    "risk_rescaled" = risk_rescaled,
+    "total" = total,
+    "Data_Dictionary_Used" = Data_Dictionary_Used,
+    "Subcategories" = subcategories,
+    "Variable_list" = variable_list
+  )
 }
 
 var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_Dictionary) {
@@ -144,11 +146,13 @@ var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_
     pval <- (1 + sum(unlist(boot_results_list) <= 1)) / (num_boot + 1)
     quantiles <- quantile(unlist(boot_results_list), probs <- c(0.025, 0.50, 0.975))
 
-    results_list <- list("Variable" = i,
-                         "Lower_CI" = quantiles[[1]],
-                         "Est" = quantiles[[2]],
-                         "Upper_CI" = quantiles[[3]],
-                         "P_Value" = pval)
+    results_list <- list(
+      "Variable" = i,
+      "Lower_CI" = quantiles[[1]],
+      "Est" = quantiles[[2]],
+      "Upper_CI" = quantiles[[3]],
+      "P_Value" = pval
+    )
 
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
@@ -215,11 +219,11 @@ subcat_imp_risk <- function(subcategories, data,
 }
 
 var_imp_quantile <- function(X, data,
-                            outcome, covars,
-                            fit, loss,
-                            Y, num_boot,
-                            variable_list,
-                            total, Data_Dictionary, p_val_fun) {
+                             outcome, covars,
+                             fit, loss,
+                             Y, num_boot,
+                             variable_list,
+                             total, Data_Dictionary, p_val_fun) {
 
 
   ##############################################################################
@@ -323,7 +327,7 @@ var_imp_quantile <- function(X, data,
   quantile_importance$Variable <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
 
   quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
- return(quantile_importance)
+  return(quantile_importance)
 }
 
 subcat_imp_quantile <- function(subcategories,
@@ -393,16 +397,16 @@ subcat_imp_quantile <- function(subcategories,
 
 
 mips_imp_risk <- function(risk_importance,
-                                data,
-                                outcome,
-                                covars,
-                                fit,
-                                loss,
-                                Y,
-                                num_boot,
-                                m,
-                                Data_Dictionary,
-                                p_val_fun) {
+                          data,
+                          outcome,
+                          covars,
+                          fit,
+                          loss,
+                          Y,
+                          num_boot,
+                          m,
+                          Data_Dictionary,
+                          p_val_fun) {
 
   ##############################################################################
   ######################## JOINT PERM INTERACTIONS #############################
@@ -474,4 +478,3 @@ mips_imp_risk <- function(risk_importance,
 
   return(permuted_importance)
 }
-

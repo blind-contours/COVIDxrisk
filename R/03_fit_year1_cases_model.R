@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 5
+cpus <- 18
 plan(multisession, workers = cpus)
 
 set.seed(5929922)
@@ -55,7 +55,7 @@ variable_list <- loaded_list$Variable_list
 total_outcome <- loaded_list$total
 load_model_time <- proc.time()
 
-X <- sample(X, 4)
+risk <- loaded_list$risk_rescaled
 
 plan(multicore, workers = cpus)
 
@@ -125,35 +125,35 @@ subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    Data_Dictionary = data_dictionary,
                                                    p_val_fun = p_val_fun)
 
-mips_results <- mips_imp_risk(risk_importance,
-                          data,
-                          outcome,
-                          covars,
-                          fit,
-                          loss,
-                          Y,
-                          num_boot,
-                          m,
-                          Data_Dictionary,
-                          p_val_fun)
+mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
+                          data = data,
+                          outcome = outcome,
+                          covars = covars,
+                          fit = sl,
+                          loss = loss_squared_error,
+                          Y= Y,
+                          num_boot = num_boot,
+                          m = var_combn,
+                          Data_Dictionary = data_dictionary,
+                          p_val_fun = p_val_fun)
 
 # save model
-saveRDS(var_imp_results$fit, here(paste("Models/", outcome, ".RDS", sep = "")))
+saveRDS(sl, here(paste("Models/", outcome, ".RDS", sep = "")))
 
 # save ind var risk data
-saveRDS(var_imp_results$var_imp$Var_Risk_Results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
+saveRDS(var_imp_risk_results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
 
 # save subgroup risk data
-saveRDS(var_imp_results$var_imp$Subgroup_Risk_Results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
+saveRDS(subcat_imp_risk_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
 
 # save ind quantile pred data
-saveRDS(var_imp_results$var_imp$Var_Quantile_Results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
+saveRDS(var_imp_quantile_results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
 
 # save subgroup quantile pred data
-saveRDS(var_imp_results$var_imp$Subgroup_Quantile_Results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
+saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
 
 # save subgroup quantile pred data
-saveRDS(var_imp_results$var_imp$Intxn_Risk_Results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
+saveRDS(mips_results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
 
 # print model risk scaled back to units
-print(var_imp_results$var_imp$model_risk)
+print(risk)
