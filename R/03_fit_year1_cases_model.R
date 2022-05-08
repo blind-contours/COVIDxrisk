@@ -19,13 +19,13 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Cases at 1 Year"
-num_boot <- 10
+num_boot <- 3
 var_combn <- 3
 
-start <- proc.time()
+start_time <- proc.time()
 
 # load in the data
-load_data_results <-  load_data(path_data = "cleaned_covid_data_final_Mar_31_22.csv", path_data_dict = "Data_Dictionary.xlsx")
+load_data_results <- load_data(path_data = "cleaned_covid_data_final_Mar_31_22.csv", path_data_dict = "Data_Dictionary.xlsx")
 data <- load_data_results$data
 data_dictionary <- load_data_results$data_dictionary
 
@@ -34,19 +34,108 @@ sl_fit <- create_sl(data = data, outcome = outcome, all_outcomes = all_outcomes)
 sl <- sl_fit$sl_fit
 covars <- sl_fit$covars
 
+fit_model_time <- proc.time()
+
+print("Finished Model Fitting")
+
+loaded_list <- load_model(
+  fit = sl,
+  loss = loss_squared_error,
+  covars = covars,
+  outcome = outcome,
+  data = data,
+  Data_Dictionary = data_dictionary
+)
+
+X <- loaded_list$X
+Y <- loaded_list$Y
+outcome <- loaded_list$outcome
+subcategories <- loaded_list$Subcategories
+variable_list <- loaded_list$Variable_list
+total_outcome <- loaded_list$total
+load_model_time <- proc.time()
+
+X <- sample(X, 4)
+
 plan(multicore, workers = cpus)
 
-var_imp_results <- run_varimp(fit = sl,
-           loss = loss_squared_error,
-           covars= covars,
-           outcome = outcome,
-           data = data,
-           Data_Dictionary = data_dictionary,
-           label = label,
-           num_boot = num_boot,
-           m = var_combn)
+var_imp_risk_results <- var_imp_risk(
+  X = X, data = data, outcome = outcome,
+  covars = covars, fit = sl,
+  loss = loss_squared_error, Y = Y, num_boot = num_boot,
+  Data_Dictionary = data_dictionary
+)
 
-proc.time() - start
+variable_imp_risk_time <- proc.time()
+
+print("Finished Risk Variable Importance")
+
+subcat_imp_risk_results <- subcat_imp_risk(
+  subcategories = subcategories,
+  data = data, outcome = outcome,
+  covars = covars,
+  fit = sl,
+  loss = loss_squared_error,
+  Y = Y,
+  num_boot = num_boot,
+  variable_list = variable_list
+)
+
+subcat_imp_risk_time <- proc.time()
+
+print("Finished Risk Sub-Category Importance")
+
+var_imp_quantile_results <- var_imp_quantile(
+  X = X,
+  data = data,
+  outcome = outcome,
+  covars = covars,
+  fit = sl,
+  loss = loss_squared_error,
+  Y = Y,
+  num_boot = num_boot,
+  total,
+  Data_Dictionary = data_dictionary,
+  total = total_outcome,
+  p_val_fun = p_val_fun
+)
+
+subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
+  data = data,
+  outcome = outcome,
+  covars = covars,
+  fit = sl,
+  Y = Y,
+  num_boot = num_boot,
+  variable_list = variable_list,
+  total = total_outcome,
+  Data_Dictionary = data_dictionary,
+  p_val_fun = p_val_fun
+)
+
+subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
+                                                   data = data,
+                                                   outcome = outcome,
+                                                   covars = covars,
+                                                   fit = sl,
+                                                   Y = Y,
+                                                   num_boot = num_boot,
+                                                   variable_list = variable_list,
+                                                   total = total_outcome,
+                                                   Data_Dictionary = data_dictionary,
+                                                   p_val_fun = p_val_fun)
+
+mips_results <- mips_imp_risk(risk_importance,
+                          data,
+                          outcome,
+                          covars,
+                          fit,
+                          loss,
+                          Y,
+                          num_boot,
+                          m,
+                          Data_Dictionary,
+                          p_val_fun)
 
 # save model
 saveRDS(var_imp_results$fit, here(paste("Models/", outcome, ".RDS", sep = "")))
@@ -68,6 +157,3 @@ saveRDS(var_imp_results$var_imp$Intxn_Risk_Results, here(paste("data/", outcome,
 
 # print model risk scaled back to units
 print(var_imp_results$var_imp$model_risk)
-
-
-

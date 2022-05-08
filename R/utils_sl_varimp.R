@@ -71,15 +71,13 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
   return(data)
 }
 
-run_varimp <- function(fit,
+load_model <- function(fit,
                        loss,
                        covars,
                        outcome,
                        data = covid_data_processed,
-                       Data_Dictionary = Data_Dictionary,
-                       label = label,
-                       num_boot = num_boot,
-                       m = 3) {
+                       Data_Dictionary = Data_Dictionary) {
+
   task <- fit$training_task
   dat <- task$data
   X <- task$nodes$covariates
@@ -97,6 +95,19 @@ run_varimp <- function(fit,
   subcategories <- Data_Dictionary_Used$Label
   variable_list <- Data_Dictionary_Used$`Variable Name`
 
+  return_list <- list("Task" = task,
+                      "Data" = data,
+                      "X" = X,
+                      "Y" = Y,
+                      "risk" = risk,
+                      "total" = total,
+                      "Data_Dictionary_Used" = Data_Dictionary_Used,
+                      "Subcategories" = subcategories,
+                      "Variable_list" = variable_list)
+}
+
+var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_Dictionary) {
+
   ##########################################################################################
   ######################## VARIABLE IMPORTANCE BASED ON RISK ###############################
   ##########################################################################################
@@ -104,9 +115,9 @@ run_varimp <- function(fit,
   risk_importance <- furrr::future_map_dfr(X, function(i) {
     boot_results_list <- list()
     for (boot in seq(num_boot)) {
-      nr <- nrow(dat)
+      nr <- nrow(data)
 
-      resampled_data <- dat[sample(1:nr, size = nr, replace = TRUE), ]
+      resampled_data <- data[sample(1:nr, size = nr, replace = TRUE), ]
       resampled_data_perm <- resampled_data
       resampled_data_perm[[i]] <- sample(resampled_data[[i]], size = nr)
 
@@ -133,31 +144,43 @@ run_varimp <- function(fit,
     pval <- (1 + sum(unlist(boot_results_list) <= 1)) / (num_boot + 1)
     quantiles <- quantile(unlist(boot_results_list), probs <- c(0.025, 0.50, 0.975))
 
-    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = pval)
+    results_list <- list("Variable" = i,
+                         "Lower_CI" = quantiles[[1]],
+                         "Est" = quantiles[[2]],
+                         "Upper_CI" = quantiles[[3]],
+                         "P_Value" = pval)
 
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
   risk_importance$Variable <- Data_Dictionary$`Nice Label`[match(risk_importance$Variable, Data_Dictionary$`Variable Name`)]
 
-  print("Finished LOO-Risk Importance")
+  return(risk_importance)
+}
+
+subcat_imp_risk <- function(subcategories, data,
+                            outcome, covars,
+                            fit, loss,
+                            Y, num_boot,
+                            variable_list) {
 
   ##########################################################################################
   ######################## SUBGROUP IMPORTANCE BASED ON RISK ###############################
   ##########################################################################################
 
   X <- unique(subcategories)
+  X <- sample(X, 3)
   X <- X[X != "outcome"]
 
   subgroup_risk_importance <- furrr::future_map_dfr(X, function(i) {
     boot_results_list <- list()
     for (boot in seq(num_boot)) {
-      nr <- nrow(dat)
+      nr <- nrow(data)
       subcat_vars <- variable_list[which(subcategories %in% i)]
 
-      resampled_data_perm <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
-      resampled_data_no_perm <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
-      resampled_data <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data_perm <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data_no_perm <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       resampled_data_perm[, subcat_vars] <- resampled_data_no_perm[, subcat_vars]
 
@@ -189,21 +212,27 @@ run_varimp <- function(fit,
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  print("Finished Subgroup-Risk Importance")
+  return(subgroup_risk_importance)
+}
+
+var_imp_quantile <- function(X, data,
+                            outcome, covars,
+                            fit, loss,
+                            Y, num_boot,
+                            variable_list,
+                            total, Data_Dictionary, p_val_fun) {
+
 
   ##############################################################################
   ######################## QUANTILE INTERACTIONS ###############################
   ##############################################################################
 
-  X <- task$nodes$covariates
-
   quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_boot_results_list <- list()
     for (boot in seq(num_boot)) {
-      dat <- fit$training_task$data
-      nr <- nrow(dat)
+      nr <- nrow(data)
 
-      resampled_data <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       # all non-target at 25%
       target_25_nontarget_25 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.25, nontarget_q = 0.25)
@@ -295,24 +324,36 @@ run_varimp <- function(fit,
   quantile_importance$Variable <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
 
   quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
-  quantile_results_nonzero <- quantile_importance[rowSums(quantile_importance[, 2:4]) != 0, ]
+ return(quantile_importance)
+}
 
-  print("Finished Quantile Predictions")
+subcat_imp_quantile <- function(subcategories,
+                                data,
+                                outcome,
+                                covars,
+                                fit,
+                                loss,
+                                Y,
+                                num_boot,
+                                variable_list,
+                                total,
+                                Data_Dictionary,
+                                p_val_fun) {
 
   #####################################################################################
   ######################## SUBGROUP QUANTILE IMPORTANCE ###############################
   #####################################################################################
 
   X <- unique(subcategories)
+  X <- sample(X, 3)
   X <- X[X != "outcome"]
 
   subgroup_quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_subcat_boot_results_list <- list()
     for (boot in seq(num_boot)) {
-      dat <- fit$training_task$data
-      nr <- nrow(dat)
+      nr <- nrow(data)
 
-      resampled_data <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       subcat_vars <- variable_list[which(subcategories %in% i)]
 
@@ -342,14 +383,28 @@ run_varimp <- function(fit,
     quantiles <- quantile(unlist(quantile_subcat_boot_results_list), probs <- c(0.025, 0.50, 0.975))
     p_val <- p_val_fun(quantiles)
 
-    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = pval)
+    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = p_val)
 
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
   subgroup_quantile_importance[, c(2:4)] <- as.data.frame(sapply(subgroup_quantile_importance[, c(2:4)], as.numeric) * total)
 
-  print("Finished Subgroup-Quantile Importance")
+  return(subgroup_quantile_importance)
+}
+
+
+mips_imp_risk <- function(risk_importance,
+                                data,
+                                outcome,
+                                covars,
+                                fit,
+                                loss,
+                                Y,
+                                num_boot,
+                                m,
+                                Data_Dictionary,
+                                p_val_fun) {
 
   ##############################################################################
   ######################## JOINT PERM INTERACTIONS #############################
@@ -419,34 +474,6 @@ run_varimp <- function(fit,
     return(mips_result)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-
-  print("Finished Joint Permutation")
-
-  return(list(
-    "Var_Risk_Results" = risk_importance,
-    "Subgroup_Risk_Results" = subgroup_risk_importance,
-    "Var_Quantile_Results" = quantile_importance,
-    "Subgroup_Quantile_Results" = subgroup_quantile_importance,
-    "Intxn_Risk_Results" = permuted_importance,
-    "model_risk" = risk_rescaled
-  ))
+  return(permuted_importance)
 }
 
-fit_sl_varimp <- function(outcome, label, num_boot) {
-
-  ## get variable importance from the sl3 object
-  var_importance <- run_varimp(
-    fit = sl_fit,
-    loss = loss_squared_error,
-    covars = covars,
-    outcome = outcome,
-    data = covid_data_processed,
-    Data_Dictionary = Data_Dictionary,
-    label = label,
-    num_boot = num_boot
-  )
-
-  SL_results <- list("fit" = sl_fit, "var_imp" = var_importance)
-
-  return(SL_results)
-}
