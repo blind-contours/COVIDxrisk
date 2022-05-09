@@ -157,8 +157,6 @@ var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  risk_importance$Variable <- Data_Dictionary$`Nice Label`[match(risk_importance$Variable, Data_Dictionary$`Variable Name`)]
-
   return(risk_importance)
 }
 
@@ -413,7 +411,7 @@ mips_imp_risk <- function(risk_importance,
   ######################## JOINT PERM INTERACTIONS #############################
   ##############################################################################
 
-  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 1.0005)$Variable, m = m)
+  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 1.005)$Variable, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -424,9 +422,9 @@ mips_imp_risk <- function(risk_importance,
     target_vars <- unlist(str_split(i, " & "))
     mips_boot_results_list <- list()
     for (boot in seq(num_boot)) {
-      nr <- nrow(dat)
-      resampled_data_perm <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
-      resampled_data_no_perm <- as.data.frame(dat[sample(1:nr, size = nr, replace = TRUE), ])
+      nr <- nrow(data)
+      resampled_data_perm <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data_no_perm <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       resampled_data_perm[, target_vars] <- resampled_data_no_perm[, target_vars]
 
@@ -443,7 +441,6 @@ mips_imp_risk <- function(risk_importance,
         covariates = covars
       )
 
-      # resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "validation")
       resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "validation")
 
       risk_scrambled <- mean(loss(resampled_perm_sl_preds, Y))

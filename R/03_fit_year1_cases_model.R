@@ -50,6 +50,7 @@ loaded_list <- load_model(
 
 X <- loaded_list$X
 Y <- loaded_list$Y
+
 subcategories <- loaded_list$Subcategories
 variable_list <- loaded_list$Variable_list
 total_outcome <- loaded_list$total
@@ -69,6 +70,8 @@ var_imp_risk_results <- var_imp_risk(
 )
 
 variable_imp_risk_time <- proc.time()
+
+var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
 
 saveRDS(var_imp_risk_results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
 
