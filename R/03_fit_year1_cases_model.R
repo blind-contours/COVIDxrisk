@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 15
+cpus <- 20
 plan(multisession, workers = cpus)
 
 set.seed(5929922)
@@ -19,7 +19,7 @@ all_outcomes <- c(
 )
 label <- "COVID-19 Cases at 1 Year"
 num_boot <- 5
-var_combn <- 3
+var_combn <- 2
 
 start_time <- proc.time()
 
@@ -143,7 +143,6 @@ mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
                           risk = risk)
 
 print("Finished MIPS")
-
 
 saveRDS(mips_results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
 
