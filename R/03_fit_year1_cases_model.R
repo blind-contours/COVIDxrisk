@@ -5,7 +5,6 @@ cpus <- 15
 plan(multisession, workers = cpus)
 
 set.seed(5929922)
-# Cases1year <- fit_sl_varimp(outcome = "Casesat1year", label = "COVID-19 Cases at 1 Year", num_boot = 10)
 
 # set the fit_sl_varimp args
 outcome <- "Casesat1year"
@@ -19,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Cases at 1 Year"
-num_boot <- 3
+num_boot <- 5
 var_combn <- 3
 
 start_time <- proc.time()
@@ -51,13 +50,14 @@ loaded_list <- load_model(
 
 X <- loaded_list$X
 Y <- loaded_list$Y
-outcome <- loaded_list$outcome
 subcategories <- loaded_list$Subcategories
 variable_list <- loaded_list$Variable_list
 total_outcome <- loaded_list$total
-load_model_time <- proc.time()
 
-risk <- loaded_list$risk_rescaled
+risk_rescaled <- loaded_list$risk_rescaled
+risk <- loaded_list$risk
+
+load_model_time <- proc.time()
 
 plan(multicore, workers = cpus)
 
@@ -82,8 +82,7 @@ subcat_imp_risk_results <- subcat_imp_risk(
   loss = loss_squared_error,
   Y = Y,
   num_boot = num_boot,
-  variable_list = variable_list
-)
+  variable_list = variable_list)
 
 subcat_imp_risk_time <- proc.time()
 
@@ -108,6 +107,8 @@ var_imp_quantile_results <- var_imp_quantile(
 
 saveRDS(var_imp_quantile_results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
 
+print("Finished Quantile-Based Variable Importance")
+
 subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    data = data,
                                                    outcome = outcome,
@@ -120,7 +121,9 @@ subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    Data_Dictionary = data_dictionary,
                                                    p_val_fun = p_val_fun)
 
-saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
+print("Finished Sub-Category Quantile Importance")
+
+saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_quant.RDS", sep = "")))
 
 
 mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
@@ -133,7 +136,11 @@ mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
                           num_boot = num_boot,
                           m = var_combn,
                           Data_Dictionary = data_dictionary,
-                          p_val_fun = p_val_fun)
+                          p_val_fun = p_val_fun,
+                          risk = risk)
+
+print("Finished MIPS")
+
 
 saveRDS(mips_results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
 

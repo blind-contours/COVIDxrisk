@@ -406,13 +406,14 @@ mips_imp_risk <- function(risk_importance,
                           num_boot,
                           m,
                           Data_Dictionary,
-                          p_val_fun) {
+                          p_val_fun,
+                          risk) {
 
   ##############################################################################
   ######################## JOINT PERM INTERACTIONS #############################
   ##############################################################################
 
-  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 1.0)$Variable, m = m)
+  variable_combinations <- combn(subset(risk_importance, risk_importance$`Lower_CI` > 1.0005)$Variable, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   variable_combinations <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -455,6 +456,7 @@ mips_imp_risk <- function(risk_importance,
         "Joint_Risk" = varimp_metric,
         "Additive_Risk" = additive_risk
       )
+
 
       mips_boot_results_list[[boot]] <- results_list
     }
