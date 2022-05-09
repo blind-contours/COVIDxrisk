@@ -36,6 +36,8 @@ covars <- sl_fit$covars
 
 fit_model_time <- proc.time()
 
+saveRDS(sl, here(paste("Models/", outcome, ".RDS", sep = "")))
+
 print("Finished Model Fitting")
 
 loaded_list <- load_model(
@@ -68,6 +70,8 @@ var_imp_risk_results <- var_imp_risk(
 
 variable_imp_risk_time <- proc.time()
 
+saveRDS(var_imp_risk_results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
+
 print("Finished Risk Variable Importance")
 
 subcat_imp_risk_results <- subcat_imp_risk(
@@ -82,6 +86,8 @@ subcat_imp_risk_results <- subcat_imp_risk(
 )
 
 subcat_imp_risk_time <- proc.time()
+
+saveRDS(subcat_imp_risk_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
 
 print("Finished Risk Sub-Category Importance")
 
@@ -100,18 +106,7 @@ var_imp_quantile_results <- var_imp_quantile(
   p_val_fun = p_val_fun
 )
 
-subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
-  data = data,
-  outcome = outcome,
-  covars = covars,
-  fit = sl,
-  Y = Y,
-  num_boot = num_boot,
-  variable_list = variable_list,
-  total = total_outcome,
-  Data_Dictionary = data_dictionary,
-  p_val_fun = p_val_fun
-)
+saveRDS(var_imp_quantile_results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
 
 subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    data = data,
@@ -125,6 +120,9 @@ subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    Data_Dictionary = data_dictionary,
                                                    p_val_fun = p_val_fun)
 
+saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
+
+
 mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
                           data = data,
                           outcome = outcome,
@@ -137,23 +135,6 @@ mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
                           Data_Dictionary = data_dictionary,
                           p_val_fun = p_val_fun)
 
-# save model
-saveRDS(sl, here(paste("Models/", outcome, ".RDS", sep = "")))
-
-# save ind var risk data
-saveRDS(var_imp_risk_results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
-
-# save subgroup risk data
-saveRDS(subcat_imp_risk_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
-
-# save ind quantile pred data
-saveRDS(var_imp_quantile_results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
-
-# save subgroup quantile pred data
-saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
-
-# save subgroup quantile pred data
 saveRDS(mips_results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
 
-# print model risk scaled back to units
 print(risk)
