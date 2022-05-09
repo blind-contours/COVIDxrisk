@@ -3,15 +3,15 @@
 #SBATCH --job-name=covid_cases_1year_modeling
 #
 # Partition:
-#SBATCH --partition=savio2
+#SBATCH --partition=savio3
 #
-#SBATCH --qos=biostat_savio2_normal
+#SBATCH --qos=biostat_savio3_normal
 #SBATCH --account=co_biostat
 #
 # Number of nodes for use case:
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=20
+#SBATCH --cpus-per-task=15
 #SBATCH --exclusive
 #
 # Wall clock limit ('0' for unlimited):

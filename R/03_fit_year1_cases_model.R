@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 18
+cpus <- 15
 plan(multisession, workers = cpus)
 
 set.seed(5929922)
