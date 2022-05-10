@@ -411,15 +411,15 @@ mips_imp_risk <- function(risk_importance,
   ######################## JOINT PERM INTERACTIONS #############################
   ##############################################################################
 
-  variable_combinations <- combn(subset(risk_importance, risk_importance$Est > 1.001)$Variable, m = m)
+  cut_off <- quantile(risk_importance$Est, 0.75)
+  variable_combinations <- combn(subset(risk_importance, risk_importance$Est > cut_off)$Variable, m = m)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
-  variable_combinations <- as.data.frame(variable_combinations)
+  X <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
 
-  X <- as.vector(apply(variable_combinations, 2, paste, collapse = " & "))
+  permuted_importance <- furrr::future_map_dfr(1:dim(X)[2], function(i) {
 
-  permuted_importance <- furrr::future_map_dfr(X, function(i) {
-    target_vars <- unlist(str_split(i, " & "))
+    target_vars <- X[,i]
     mips_boot_results_list <- list()
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
