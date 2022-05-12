@@ -1,4 +1,7 @@
-create_sl <- function(data = covid_data_processed, outcome = outcome, all_outcomes = all_outcomes) {
+create_sl <- function(data = covid_data_processed,
+                      outcome = outcome,
+                      all_outcomes = all_outcomes) {
+
   covars <- colnames(data)[-which(names(data) %in% c(
     all_outcomes,
     "fips",
@@ -20,9 +23,12 @@ create_sl <- function(data = covid_data_processed, outcome = outcome, all_outcom
   return(list("sl_fit" = sl_fit, "covars" = covars))
 }
 
-load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv", path_data_dict = "Data_Dictionary.xlsx") {
+load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
+                      path_data_dict = "Data_Dictionary.xlsx") {
   ## load data
-  covid_data_processed <- read.csv(PROCESSED_DATA_PATH(path_data), check.names = FALSE)
+  covid_data_processed <- read.csv(PROCESSED_DATA_PATH(path_data),
+                                   check.names = FALSE)
+
   covid_data_processed <- covid_data_processed[, -1]
 
   Data_Dictionary <- read_excel(PROCESSED_DATA_PATH(path_data_dict))
@@ -71,12 +77,51 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
   return(data)
 }
 
+set_cond_quantiles <- function(data, target, target_q, nontarget_q) {
+  thresh <- quantile(data[[target]], target_q)
+  data_filt <- data[data[[target]] > thresh, ]
+  medians <- as.data.frame(matrix(sapply(data_filt, quantile, probs = nontarget_q), nrow = 1))
+  colnames(medians) <- colnames(data_filt)
+  medians[[target]] <- thresh
+  return(medians)
+}
+
+set_mips_quantiles <- function(data, targets, target_qs, nontarget_q) {
+  threshs <- list()
+  for (var_i in seq(targets)) {
+    target <- targets[var_i]
+    thresh_i <- quantile(data[[target]], probs = target_qs[var_i])
+    threshs[var_i] <- thresh_i
+  }
+  threshs <- unlist(threshs)
+
+  for (thresh in seq(threshs)) {
+    target <- targets[thresh]
+    if (target_qs[thresh] == 0.25) {
+      data <- data[data[[target]] <= threshs[thresh], ]
+    } else {
+      data <- data[data[[target]] >= threshs[thresh], ]
+    }
+  }
+
+  medians <- as.data.frame(matrix(sapply(data, quantile, probs = nontarget_q), nrow = 1))
+  colnames(medians) <- colnames(data)
+
+  for (i in seq(targets)) {
+    target <- targets[i]
+    medians[[target]] <- threshs[i]
+  }
+
+  return(medians)
+}
+
 load_model <- function(fit,
                        loss,
                        covars,
                        outcome,
                        data = covid_data_processed,
                        Data_Dictionary = Data_Dictionary) {
+
   task <- fit$training_task
   dat <- task$data
   X <- task$nodes$covariates
@@ -216,12 +261,18 @@ subcat_imp_risk <- function(subcategories, data,
   return(subgroup_risk_importance)
 }
 
-var_imp_quantile <- function(X, data,
-                             outcome, covars,
-                             fit, loss,
-                             Y, num_boot,
+var_imp_quantile <- function(X,
+                             data,
+                             outcome,
+                             covars,
+                             fit,
+                             loss,
+                             Y,
+                             num_boot,
                              variable_list,
-                             total, Data_Dictionary, p_val_fun) {
+                             total,
+                             Data_Dictionary,
+                             p_val_fun) {
 
 
   ##############################################################################
@@ -236,16 +287,16 @@ var_imp_quantile <- function(X, data,
       resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       # all non-target at 25%
-      target_25_nontarget_25 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.25, nontarget_q = 0.25)
-      target_75_nontarget_25 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.75, nontarget_q = 0.25)
+      target_25_nontarget_25 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.25)
+      target_75_nontarget_25 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.25)
 
       # all non-target at 75%
-      target_25_nontarget_75 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.25, nontarget_q = 0.75)
-      target_75_nontarget_75 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.75, nontarget_q = 0.75)
+      target_25_nontarget_75 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.75)
+      target_75_nontarget_75 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.75)
 
       # all non-target at 75%
-      target_25_nontarget_50 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.25, nontarget_q = 0.50)
-      target_75_nontarget_50 <- set_quantiles(data = resampled_data, X, target = i, target_q = 0.75, nontarget_q = 0.50)
+      target_25_nontarget_50 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.50)
+      target_75_nontarget_50 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.50)
 
       task_target_25_nontarget_25 <- make_sl3_Task(
         data = target_25_nontarget_25,
@@ -322,7 +373,7 @@ var_imp_quantile <- function(X, data,
   }, .options = furrr::furrr_options(seed = TRUE))
 
   colnames(quantile_importance) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Condition")
-  quantile_importance$Variable <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
+  quantile_importance$Label <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
 
   quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
   return(quantile_importance)
@@ -360,17 +411,7 @@ subcat_imp_quantile <- function(subcategories,
       subcat_25_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.25, nontarget_q = 0.5, subcategory_flag = TRUE)
       subcat_75_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.75, nontarget_q = 0.5, subcategory_flag = TRUE)
 
-      task_sub_cat_25_nontarget_obs <- make_sl3_Task(
-        data = subcat_25_nontarget_obs,
-        covariates = covars,
-        outcome = outcome
-      )
 
-      task_sub_cat_75_nontarget_obs <- make_sl3_Task(
-        data = subcat_75_nontarget_obs,
-        covariates = covars,
-        outcome = outcome
-      )
 
       subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "validation")
       subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "validation")
@@ -418,8 +459,7 @@ mips_imp_risk <- function(risk_importance,
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
 
   permuted_importance <- furrr::future_map_dfr(1:dim(X)[2], function(i) {
-
-    target_vars <- X[,i]
+    target_vars <- X[, i]
     mips_boot_results_list <- list()
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
@@ -476,4 +516,122 @@ mips_imp_risk <- function(risk_importance,
   }, .options = furrr::furrr_options(seed = TRUE))
 
   return(permuted_importance)
+}
+
+mips_imp_quantile <- function(quantile_importance,
+                              data,
+                              outcome,
+                              covars,
+                              fit,
+                              loss,
+                              Y,
+                              num_boot,
+                              m,
+                              Data_Dictionary,
+                              p_val_fun,
+                              total) {
+
+  ##############################################################################
+  ######################## JOINT PERM INTERACTIONS #############################
+  ##############################################################################
+
+  quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Medium")
+
+  cut_off <- quantile(quantile_importance$Est, 0.75)
+  variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
+  ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
+  X <- as.data.frame(variable_combinations)
+  ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
+
+  mips_quantile_importance_results <- furrr::future_map_dfr(1:dim(X)[2], function(i) {
+    target_vars <- X[, i]
+    quantile_mips_boot_results_list <- list()
+
+    corr_value <- cor(data[target_vars])[1, 2]
+    corr_pos_ind <- ifelse(corr_value > 0, 1, 0)
+
+    additives <- quantile_importance %>%
+      filter(Variable %in% target_vars) %>%
+      select(Est)
+
+    additive_sum <- sum(additives)
+
+    for (boot in seq(num_boot)) {
+      nr <- nrow(data)
+
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+
+      if (corr_pos_ind == 1) {
+        data1 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.25, 0.25), nontarget_q = 0.5)
+        data2 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.75, 0.75), nontarget_q = 0.5)
+
+        task_data1 <- make_sl3_Task(
+          data = data1,
+          outcome = outcome,
+          covariates = covars
+        )
+
+        task_data2 <- make_sl3_Task(
+          data = data2,
+          outcome = outcome,
+          covariates = covars
+        )
+
+        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "validation")
+        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "validation")
+
+        varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
+
+        joint_additive_diff <- varimp_metric - additive_sum
+
+        results_list <- list("Joint_Diff" = varimp_metric, "Additive_Diff" = additive_sum, "Interaction" = joint_additive_diff)
+        quantile_mips_boot_results_list[[boot]] <- results_list
+
+      } else {
+
+        data1 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.25, 0.75), nontarget_q = 0.5)
+        data2 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.75, 0.25), nontarget_q = 0.5)
+
+        task_data1 <- make_sl3_Task(
+          data = data1,
+          outcome = outcome,
+          covariates = covars
+        )
+
+        task_data2 <- make_sl3_Task(
+          data = data2,
+          outcome = outcome,
+          covariates = covars
+        )
+
+        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "validation")
+        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "validation")
+
+        varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
+
+        joint_additive_diff <- varimp_metric - additive_sum
+
+        results_list <- list("Joint_Diff" = varimp_metric, "Additive_Diff" = additive_sum, "Interaction" = joint_additive_diff)
+        quantile_mips_boot_results_list[[boot]] <- results_list
+      }
+    }
+
+    quantile_mips_boot_results <- bind_rows(quantile_mips_boot_results_list)
+    quantile_mips_results_CIs <- t(sapply(quantile_mips_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
+    pvals <- as.data.frame(apply(quantile_mips_results_CIs, 1, p_val_fun))
+
+    target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
+
+    result <- bind_cols(quantile_mips_results_CIs, pvals)
+    result$Condition <- rownames(result)
+    result$Variables <- paste(target_vars_nice, collapse = " & ")
+
+    rownames(result) <- NULL
+
+    return(result)
+  }, .options = furrr::furrr_options(seed = TRUE))
+
+  colnames(mips_quantile_importance_results) <- c("Lower_CI", "Est", "Upper_CI", "P_Value", "Condition", "Variable_Comb")
+
+  return(mips_quantile_importance_results)
 }
