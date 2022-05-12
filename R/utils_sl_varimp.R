@@ -84,7 +84,7 @@ set_cond_quantiles <- function(data, target, target_q, nontarget_q) {
   colnames(medians) <- colnames(data_filt)
   medians[[target]] <- thresh
 
-  medians <- sapply(medians, rep.int, times=10)
+  # medians <- sapply(medians, rep.int, times=10)
   medians <- as.data.frame(medians)
 
   return(medians)
@@ -115,8 +115,8 @@ set_mips_quantiles <- function(data, targets, target_qs, nontarget_q) {
     target <- targets[i]
     medians[[target]] <- threshs[i]
   }
-  medians <- sapply(medians, rep.int, times=10)
-  medians <- as.data.frame(medians)
+  # medians <- sapply(medians, rep.int, times=10)
+  # medians <- as.data.frame(medians)
   return(medians)
 }
 
@@ -185,8 +185,8 @@ var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_
         covariates = covars
       )
 
-      resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "validation")
-      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "validation")
+      resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "full")
+      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "full")
 
       varimp_metric <- mean(loss(resampled_perm_sl_preds, Y)) / mean(loss(resampled_sl_preds, Y))
 
@@ -247,8 +247,8 @@ subcat_imp_risk <- function(subcategories, data,
         covariates = covars
       )
 
-      resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "validation")
-      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "validation")
+      resampled_sl_preds <- fit$predict_fold(task_no_perm, fold_number = "full")
+      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "full")
 
       varimp_metric <- mean(loss(resampled_perm_sl_preds, Y)) / mean(loss(resampled_sl_preds, Y))
 
@@ -343,14 +343,14 @@ var_imp_quantile <- function(X,
         outcome = outcome
       )
 
-      y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "validation")
-      y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "validation")
+      y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "full")
+      y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "full")
 
-      y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "validation")
-      y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "validation")
+      y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "full")
+      y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "full")
 
-      y_25_50_predictions <- fit$predict_fold(task = task_target_25_nontarget_50, fold_number = "validation")
-      y_75_50_predictions <- fit$predict_fold(task = task_target_75_nontarget_50, fold_number = "validation")
+      y_25_50_predictions <- fit$predict_fold(task = task_target_25_nontarget_50, fold_number = "full")
+      y_75_50_predictions <- fit$predict_fold(task = task_target_75_nontarget_50, fold_number = "full")
 
       # y_25_obs_predictions <- fit$predict_fold(task = task_target_25_nontarget_obs, fold_number = "validation")
       # y_75_obs_predictions <- fit$predict_fold(task = task_target_75_nontarget_obs, fold_number = "validation")
@@ -418,8 +418,8 @@ subcat_imp_quantile <- function(subcategories,
 
 
 
-      subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "validation")
-      subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "validation")
+      subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "full")
+      subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "full")
 
       varimp_metric <- mean(subcat_75_obs_predictions - subcat_25_obs_predictions)
 
@@ -486,7 +486,7 @@ mips_imp_risk <- function(risk_importance,
         covariates = covars
       )
 
-      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "validation")
+      resampled_perm_sl_preds <- fit$predict_fold(task_perm, fold_number = "full")
 
       risk_scrambled <- mean(loss(resampled_perm_sl_preds, Y))
       varimp_metric <- risk_scrambled / risk
@@ -582,8 +582,8 @@ mips_imp_quantile <- function(quantile_importance,
           covariates = covars
         )
 
-        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "validation")
-        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "validation")
+        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full")
+        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full")
 
         varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
 
@@ -609,8 +609,8 @@ mips_imp_quantile <- function(quantile_importance,
           covariates = covars
         )
 
-        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "validation")
-        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "validation")
+        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full")
+        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full")
 
         varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
 
