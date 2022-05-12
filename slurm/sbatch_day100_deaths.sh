@@ -1,6 +1,6 @@
 #!/bin/bash
 # Job name:
-#SBATCH --job-name=day100_COVID_deaths
+#SBATCH --job-name=day100_deaths_COVID
 #
 # Partition:
 #SBATCH --partition=savio3
