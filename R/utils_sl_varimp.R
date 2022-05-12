@@ -85,6 +85,7 @@ set_cond_quantiles <- function(data, target, target_q, nontarget_q) {
   medians[[target]] <- thresh
 
   medians <- sapply(medians, rep.int, times=10)
+  medians <- as.data.frame(medians)
 
   return(medians)
 }
@@ -115,6 +116,7 @@ set_mips_quantiles <- function(data, targets, target_qs, nontarget_q) {
     medians[[target]] <- threshs[i]
   }
   medians <- sapply(medians, rep.int, times=10)
+  medians <- as.data.frame(medians)
   return(medians)
 }
 
