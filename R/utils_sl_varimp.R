@@ -79,13 +79,18 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
 
 set_cond_quantiles <- function(data, target, target_q, nontarget_q) {
   thresh <- quantile(data[[target]], target_q)
-  data_filt <- data[data[[target]] > thresh, ]
-  medians <- as.data.frame(matrix(sapply(data_filt, quantile, probs = nontarget_q), nrow = 1))
-  colnames(medians) <- colnames(data_filt)
-  medians[[target]] <- thresh
+  if(target_q == 0.75){
+    data_filt <- data[data[[target]] >= thresh, ]
+  }else{
+    data_filt <- data[data[[target]] <= thresh, ]
+  }
+    medians <- as.data.frame(matrix(sapply(data_filt, quantile, probs = nontarget_q), nrow = 1))
+
+    colnames(medians) <- colnames(data_filt)
+    medians[[target]] <- thresh
 
   # medians <- sapply(medians, rep.int, times=10)
-  medians <- as.data.frame(medians)
+  # medians <- as.data.frame(medians)
 
   return(medians)
 }
