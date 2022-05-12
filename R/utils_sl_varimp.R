@@ -74,6 +74,8 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
     }
   }
 
+  data <- data[1,]
+
   return(data)
 }
 
@@ -421,7 +423,17 @@ subcat_imp_quantile <- function(subcategories,
       subcat_25_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.25, nontarget_q = 0.5, subcategory_flag = TRUE)
       subcat_75_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.75, nontarget_q = 0.5, subcategory_flag = TRUE)
 
+      task_sub_cat_75_nontarget_obs <- make_sl3_Task(
+        data = subcat_75_nontarget_obs,
+        covariates = covars,
+        outcome = outcome
+      )
 
+      task_sub_cat_25_nontarget_obs <- make_sl3_Task(
+        data = subcat_25_nontarget_obs,
+        covariates = covars,
+        outcome = outcome
+      )
 
       subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "full")
       subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "full")
