@@ -554,7 +554,7 @@ mips_imp_quantile <- function(quantile_importance,
                               total) {
 
   ##############################################################################
-  ######################## JOINT PERM INTERACTIONS #############################
+  ######################## QUANTILE BASED INTERACTIONS #########################
   ##############################################################################
 
   quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Medium")
