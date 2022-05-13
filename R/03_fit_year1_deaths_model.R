@@ -152,7 +152,6 @@ if(run_risk == TRUE){
 
   saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_quant.RDS", sep = "")))
 
-
   quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
                                              data = data,
                                              outcome = outcome,
@@ -166,7 +165,12 @@ if(run_risk == TRUE){
                                              p_val_fun = p_val_fun,
                                              total = total_outcome)
 
+  print("Finished Quantile Interactions Search")
+
+
   saveRDS(quantile_mips_results, here(paste("data/", outcome, "_intxn_imp_quantile.RDS", sep = "")))
 }
 
-print(risk)
+print(risk_rescaled)
+print(sl$learner_fits[[which(sl$coefficients == 1)]])
+

@@ -650,10 +650,12 @@ mips_imp_quantile <- function(quantile_importance,
 
     rownames(result) <- NULL
 
+    result$Corr <- corr_value
+
     return(result)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  colnames(mips_quantile_importance_results) <- c("Lower_CI", "Est", "Upper_CI", "P_Value", "Condition", "Variable_Comb")
+  colnames(mips_quantile_importance_results) <- c("Lower_CI", "Est", "Upper_CI", "P_Value", "Condition", "Variable_Comb", "Correlation")
 
   return(mips_quantile_importance_results)
 }
