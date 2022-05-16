@@ -4,7 +4,7 @@ source(here("R/util.R"))
 cpus <- 25
 plan(multisession, workers = cpus)
 
-set.seed(5929922)
+set.seed(5929942)
 
 # set the fit_sl_varimp args
 outcome <- "TotalCasesUpToDate"

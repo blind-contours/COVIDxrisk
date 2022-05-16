@@ -1,7 +1,6 @@
 create_sl <- function(data = covid_data_processed,
                       outcome = outcome,
                       all_outcomes = all_outcomes) {
-
   covars <- colnames(data)[-which(names(data) %in% c(
     all_outcomes,
     "fips",
@@ -27,7 +26,8 @@ load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
                       path_data_dict = "Data_Dictionary.xlsx") {
   ## load data
   covid_data_processed <- read.csv(PROCESSED_DATA_PATH(path_data),
-                                   check.names = FALSE)
+    check.names = FALSE
+  )
 
   covid_data_processed <- covid_data_processed[, -1]
 
@@ -74,27 +74,126 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
     }
   }
 
-  data <- data[1,]
+  data <- data[1, ]
 
   return(data)
 }
 
-set_cond_quantiles <- function(data, target, target_q, nontarget_q) {
-  thresh <- quantile(data[[target]], target_q)
-  if(target_q == 0.75){
-    data_filt <- data[data[[target]] >= thresh, ]
-  }else{
-    data_filt <- data[data[[target]] <= thresh, ]
+set_cond_quantiles <- function(data, target) {
+
+  # rownames(data) <- data$fips
+  data_scaled <- as.data.frame(scale(data))
+
+  quantiles <- quantile(data_scaled[[target]])
+  # quartiles_assignments <- cut(data_scaled[[target]],
+  #                              breaks = quantiles,
+  #                              include.lowest = TRUE,
+  #                              labels = c(1,2,3,4))
+
+  q1_group <- data_scaled[data_scaled[[target]] <= quantiles[1], ]
+  q4_group <- data_scaled[data_scaled[[target]] >= quantiles[4], ]
+
+  pairwise_dist <- dist2(
+    x = q1_group[, which(colnames(q1_group) != target)],
+    y = q4_group[, which(colnames(q4_group) != target)]
+  )
+
+  min_dist <- min(pairwise_dist)
+  min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
+
+  selected_q1 <- q1_group[min_element_index[, 1], ]
+  selected_q4 <- q4_group[min_element_index[, 2], ]
+
+  selected_q1[[target]] <- quantiles[1]
+  selected_q4[[target]] <- quantiles[4]
+
+  selected_q1 <- selected_q1[1, ]
+  selected_q4 <- selected_q4[1, ]
+
+  return(list("Q4_data" = selected_q4, "Q1_data" = selected_q1, "Dist" = min_dist))
+}
+
+set_cond_pair_quantiles <- function(data, targets, cor_dir_ind) {
+
+  # rownames(data) <- data$fips
+  data_scaled <- as.data.frame(scale(data))
+
+  quantiles_t1 <- quantile(data_scaled[[targets[1]]])
+  quantiles_t2 <- quantile(data_scaled[[targets[2]]])
+
+  if (cor_dir_ind == 1) {
+    q11_group_ind <- data_scaled[[targets[1]]] <= quantiles_t1[2] & data_scaled[[targets[2]]] <= quantiles_t2[2]
+    q44_group_ind <- data_scaled[[targets[1]]] >= quantiles_t1[4] & data_scaled[[targets[2]]] >= quantiles_t2[4]
+
+    no_support_flag <- any(length(unique(q11_group_ind)) == 1 | length(unique(q44_group_ind)) == 1)
+
+    if (no_support_flag == TRUE) {
+      return(NULL)
+    } else {
+      q11_group <- data_scaled[q11_group_ind, ]
+      q44_group <- data_scaled[q44_group_ind, ]
+    }
+
+    pairwise_dist <- dist2(
+      x = q11_group[, which(colnames(q11_group) %notin% targets)],
+      y = q44_group[, which(colnames(q44_group) %notin% targets)]
+    )
+
+    min_dist <- min(pairwise_dist)
+    min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
+
+    if (dim(min_element_index)[2] == 1) {
+      selected_q11_obs <- q11_group[min_element_index[, 1], ]
+      selected_q44_obs <- q44_group[min_element_index[, 2], ]
+    } else {
+      selected_q11_obs <- q11_group[min_element_index[1, 1], ]
+      selected_q44_obs <- q44_group[min_element_index[1, 2], ]
+    }
+
+    selected_q11_obs[[targets[1]]] <- quantiles_t1[2]
+    selected_q11_obs[[targets[2]]] <- quantiles_t2[2]
+
+    selected_q44_obs[[targets[1]]] <- quantiles_t1[4]
+    selected_q44_obs[[targets[2]]] <- quantiles_t2[4]
+
+    return(list("Data_1" = selected_q44_obs, "Data_2" = selected_q11_obs))
+  } else {
+    q14_group_ind <- data_scaled[[targets[1]]] <= quantiles_t1[2] & data_scaled[[targets[2]]] >= quantiles_t2[4]
+    q41_group_ind <- data_scaled[[targets[1]]] >= quantiles_t1[4] & data_scaled[[targets[2]]] <= quantiles_t2[2]
+
+    no_support_flag <- any(length(unique(q14_group_ind)) == 1 | length(unique(q41_group_ind)) == 1)
+
+    if (no_support_flag == TRUE) {
+      return(NULL)
+    } else {
+      q14_group <- data_scaled[q14_group_ind, ]
+      q41_group <- data_scaled[q41_group_ind, ]
+    }
+
+    pairwise_dist <- dist2(
+      x = q14_group[, which(colnames(q14_group) %notin% targets)],
+      y = q41_group[, which(colnames(q41_group) %notin% targets)]
+    )
+
+    min_dist <- min(pairwise_dist)
+    min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
+
+    if (dim(min_element_index)[2] == 1) {
+      selected_q14_obs <- q14_group[min_element_index[, 1], ]
+      selected_q41_obs <- q41_group[min_element_index[, 2], ]
+    } else {
+      selected_q14_obs <- q14_group[min_element_index[1, 1], ]
+      selected_q41_obs <- q41_group[min_element_index[1, 2], ]
+    }
+
+    selected_q14_obs[[targets[1]]] <- quantiles_t1[2]
+    selected_q14_obs[[targets[2]]] <- quantiles_t2[4]
+
+    selected_q41_obs[[targets[1]]] <- quantiles_t1[4]
+    selected_q41_obs[[targets[2]]] <- quantiles_t2[2]
+
+    return(list("Data_1" = selected_q14_obs, "Data_2" = selected_q41_obs))
   }
-    medians <- as.data.frame(matrix(sapply(data_filt, quantile, probs = nontarget_q), nrow = 1))
-
-    colnames(medians) <- colnames(data_filt)
-    medians[[target]] <- thresh
-
-  # medians <- sapply(medians, rep.int, times=10)
-  # medians <- as.data.frame(medians)
-
-  return(medians)
 }
 
 set_mips_quantiles <- function(data, targets, target_qs, nontarget_q) {
@@ -133,7 +232,6 @@ load_model <- function(fit,
                        outcome,
                        data = covid_data_processed,
                        Data_Dictionary = Data_Dictionary) {
-
   task <- fit$training_task
   dat <- task$data
   X <- task$nodes$covariates
@@ -299,77 +397,29 @@ var_imp_quantile <- function(X,
       resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
       # all non-target at 25%
-      target_25_nontarget_25 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.25)
-      target_75_nontarget_25 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.25)
+      counterfactual_data <- set_cond_quantiles(data = resampled_data, target = i)
 
-      # all non-target at 75%
-      target_25_nontarget_75 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.75)
-      target_75_nontarget_75 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.75)
+      Q1_data <- counterfactual_data$Q1_data
+      Q4_data <- counterfactual_data$Q4_data
 
-      # all non-target at 75%
-      target_25_nontarget_50 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.25, nontarget_q = 0.50)
-      target_75_nontarget_50 <- set_cond_quantiles(data = resampled_data, target = i, target_q = 0.75, nontarget_q = 0.50)
-
-      task_target_25_nontarget_25 <- make_sl3_Task(
-        data = target_25_nontarget_25,
+      Q1_task <- make_sl3_Task(
+        data = Q1_data,
         covariates = covars,
         outcome = outcome
       )
 
-      task_target_75_nontarget_25 <- make_sl3_Task(
-        data = target_75_nontarget_25,
+      Q4_task <- make_sl3_Task(
+        data = Q4_data,
         covariates = covars,
         outcome = outcome
       )
 
-      # all non-target at 75%
+      Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
+      Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
 
-      task_target_25_nontarget_75 <- make_sl3_Task(
-        data = target_25_nontarget_75,
-        covariates = covars,
-        outcome = outcome
-      )
+      delta_Q4_Q1 <- mean(Q4_predictions - Q1_predictions)
 
-      task_target_75_nontarget_75 <- make_sl3_Task(
-        data = target_75_nontarget_75,
-        covariates = covars,
-        outcome = outcome
-      )
-
-      # all non-target at 50%
-
-      task_target_25_nontarget_50 <- make_sl3_Task(
-        data = target_25_nontarget_50,
-        covariates = covars,
-        outcome = outcome
-      )
-
-      task_target_75_nontarget_50 <- make_sl3_Task(
-        data = target_75_nontarget_50,
-        covariates = covars,
-        outcome = outcome
-      )
-
-      y_25_25_predictions <- fit$predict_fold(task = task_target_25_nontarget_25, fold_number = "full")
-      y_75_25_predictions <- fit$predict_fold(task = task_target_75_nontarget_25, fold_number = "full")
-
-      y_25_75_predictions <- fit$predict_fold(task = task_target_25_nontarget_75, fold_number = "full")
-      y_75_75_predictions <- fit$predict_fold(task = task_target_75_nontarget_75, fold_number = "full")
-
-      y_25_50_predictions <- fit$predict_fold(task = task_target_25_nontarget_50, fold_number = "full")
-      y_75_50_predictions <- fit$predict_fold(task = task_target_75_nontarget_50, fold_number = "full")
-
-      # y_25_obs_predictions <- fit$predict_fold(task = task_target_25_nontarget_obs, fold_number = "validation")
-      # y_75_obs_predictions <- fit$predict_fold(task = task_target_75_nontarget_obs, fold_number = "validation")
-
-      delta_rest_high <- mean(y_75_75_predictions - y_25_75_predictions)
-      delta_rest_medium <- mean(y_75_50_predictions - y_25_50_predictions)
-      delta_rest_low <- mean(y_75_25_predictions - y_25_25_predictions)
-
-      # delta_rest_obs <- mean(y_75_obs_predictions - y_25_obs_predictions)
-      varimp_metric <- delta_rest_high - delta_rest_low
-
-      results_list <- list("Delta_High" = delta_rest_high, "Delta_Low" = delta_rest_low, "Delta_Medium" = delta_rest_medium, "Interaction" = varimp_metric)
+      results_list <- list("Delta_Q4_Q1" = delta_Q4_Q1, "Ref_Dist" = counterfactual_data$Dist)
       quantile_boot_results_list[[boot]] <- results_list
     }
 
@@ -387,7 +437,6 @@ var_imp_quantile <- function(X,
   colnames(quantile_importance) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Condition")
   quantile_importance$Label <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
 
-  quantile_importance[, 2:4] <- as.data.frame(sapply(quantile_importance[, 2:4], as.numeric) * total)
   return(quantile_importance)
 }
 
@@ -557,9 +606,9 @@ mips_imp_quantile <- function(quantile_importance,
   ######################## QUANTILE BASED INTERACTIONS #########################
   ##############################################################################
 
-  quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Medium")
+  quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Q4_Q1")
 
-  cut_off <- quantile(quantile_importance$Est, 0.75)
+  cut_off <- quantile(quantile_importance$Est, 0.2)
   variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   X <- as.data.frame(variable_combinations)
@@ -578,79 +627,64 @@ mips_imp_quantile <- function(quantile_importance,
 
     additive_sum <- sum(additives)
 
-    for (boot in seq(num_boot)) {
-      nr <- nrow(data)
+    counterfactual_data <- set_cond_pair_quantiles(data = data, targets = target_vars, cor_dir_ind = corr_pos_ind)
 
-      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+    if (is.null(counterfactual_data)) {
+      target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
+      result <- data.frame(mat = matrix(ncol = 5, nrow = 1))
+      result$Variables <- paste(target_vars_nice, collapse = " & ")
+      result$Corr <- NA
+    } else {
+      for (boot in seq(num_boot)) {
+        nr <- nrow(data)
 
-      if (corr_pos_ind == 1) {
-        data1 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.25, 0.25), nontarget_q = 0.5)
-        data2 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.75, 0.75), nontarget_q = 0.5)
+        resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+
+        counterfactual_data <- set_cond_pair_quantiles(data = resampled_data, targets = target_vars, cor_dir_ind = corr_pos_ind)
 
         task_data1 <- make_sl3_Task(
-          data = data1,
+          data = counterfactual_data$Data_1,
           outcome = outcome,
           covariates = covars
         )
 
         task_data2 <- make_sl3_Task(
-          data = data2,
+          data = counterfactual_data$Data_2,
           outcome = outcome,
           covariates = covars
         )
 
-        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full")
-        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full")
+        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full") * total
+        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full") * total
 
-        varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
+        if (corr_pos_ind == 1) {
+          varimp_metric <- mean(data1_sl_preds - data2_sl_preds)
+        } else {
+          varimp_metric <- mean(abs(data1_sl_preds - data2_sl_preds))
+        }
 
         joint_additive_diff <- varimp_metric - additive_sum
 
         results_list <- list("Joint_Diff" = varimp_metric, "Additive_Diff" = additive_sum, "Interaction" = joint_additive_diff)
-        quantile_mips_boot_results_list[[boot]] <- results_list
 
-      } else {
-
-        data1 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.25, 0.75), nontarget_q = 0.5)
-        data2 <- set_mips_quantiles(data = resampled_data, targets = target_vars, target_qs = c(0.75, 0.25), nontarget_q = 0.5)
-
-        task_data1 <- make_sl3_Task(
-          data = data1,
-          outcome = outcome,
-          covariates = covars
-        )
-
-        task_data2 <- make_sl3_Task(
-          data = data2,
-          outcome = outcome,
-          covariates = covars
-        )
-
-        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full")
-        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full")
-
-        varimp_metric <- mean(data2_sl_preds - data1_sl_preds) * total
-
-        joint_additive_diff <- varimp_metric - additive_sum
-
-        results_list <- list("Joint_Diff" = varimp_metric, "Additive_Diff" = additive_sum, "Interaction" = joint_additive_diff)
         quantile_mips_boot_results_list[[boot]] <- results_list
       }
+
+      quantile_mips_boot_results <- bind_rows(quantile_mips_boot_results_list)
+      quantile_mips_results_CIs <- t(sapply(quantile_mips_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
+      pvals <- as.data.frame(apply(quantile_mips_results_CIs, 1, p_val_fun))
+
+      target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
+
+      result <- bind_cols(quantile_mips_results_CIs, pvals)
+      result$Condition <- rownames(result)
+      result$Variables <- paste(target_vars_nice, collapse = " & ")
+
+      rownames(result) <- NULL
+
+      result$Corr <- corr_value
     }
 
-    quantile_mips_boot_results <- bind_rows(quantile_mips_boot_results_list)
-    quantile_mips_results_CIs <- t(sapply(quantile_mips_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
-    pvals <- as.data.frame(apply(quantile_mips_results_CIs, 1, p_val_fun))
-
-    target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
-
-    result <- bind_cols(quantile_mips_results_CIs, pvals)
-    result$Condition <- rownames(result)
-    result$Variables <- paste(target_vars_nice, collapse = " & ")
-
-    rownames(result) <- NULL
-
-    result$Corr <- corr_value
 
     return(result)
   }, .options = furrr::furrr_options(seed = TRUE))
