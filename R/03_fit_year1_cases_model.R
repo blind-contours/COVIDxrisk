@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Cases at 1 Year"
-num_boot <- 100
+num_boot <- 10
 var_combn <- 2
 
 run_risk <- FALSE
@@ -126,7 +126,6 @@ if(run_risk == TRUE){
     loss = loss_squared_error,
     Y = Y,
     num_boot = num_boot,
-    total,
     Data_Dictionary = data_dictionary,
     total = total_outcome,
     p_val_fun = p_val_fun

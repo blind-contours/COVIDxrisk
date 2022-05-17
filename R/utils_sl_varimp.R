@@ -81,21 +81,14 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
 
 set_cond_quantiles <- function(data, target) {
 
-  # rownames(data) <- data$fips
-  data_scaled <- as.data.frame(scale(data))
+  quantiles <- quantile(data[[target]])
 
-  quantiles <- quantile(data_scaled[[target]])
-  # quartiles_assignments <- cut(data_scaled[[target]],
-  #                              breaks = quantiles,
-  #                              include.lowest = TRUE,
-  #                              labels = c(1,2,3,4))
-
-  q1_group <- data_scaled[data_scaled[[target]] <= quantiles[1], ]
-  q4_group <- data_scaled[data_scaled[[target]] >= quantiles[4], ]
+  q1_group <- data[data[[target]] <= quantiles[2], ]
+  q4_group <- data[data[[target]] >= quantiles[4], ]
 
   pairwise_dist <- dist2(
-    x = q1_group[, which(colnames(q1_group) != target)],
-    y = q4_group[, which(colnames(q4_group) != target)]
+    x = scale(q1_group[, which(colnames(q1_group) != target)]),
+    y = scale(q4_group[, which(colnames(q4_group) != target)])
   )
 
   min_dist <- min(pairwise_dist)
@@ -104,7 +97,7 @@ set_cond_quantiles <- function(data, target) {
   selected_q1 <- q1_group[min_element_index[, 1], ]
   selected_q4 <- q4_group[min_element_index[, 2], ]
 
-  selected_q1[[target]] <- quantiles[1]
+  selected_q1[[target]] <- quantiles[2]
   selected_q4[[target]] <- quantiles[4]
 
   selected_q1 <- selected_q1[1, ]
@@ -417,7 +410,7 @@ var_imp_quantile <- function(X,
       Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
       Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
 
-      delta_Q4_Q1 <- mean(Q4_predictions - Q1_predictions)
+      delta_Q4_Q1 <- Q4_predictions - Q1_predictions
 
       results_list <- list("Delta_Q4_Q1" = delta_Q4_Q1, "Ref_Dist" = counterfactual_data$Dist)
       quantile_boot_results_list[[boot]] <- results_list
