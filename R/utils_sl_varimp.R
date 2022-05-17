@@ -608,7 +608,7 @@ mips_imp_quantile <- function(quantile_importance,
 
   quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Q4_Q1")
 
-  cut_off <- quantile(quantile_importance$Est, 0.75)
+  cut_off <- quantile(quantile_importance$Est, 0.97)
   variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   X <- as.data.frame(variable_combinations)
@@ -620,30 +620,30 @@ mips_imp_quantile <- function(quantile_importance,
     target_vars <- X[, i]
     quantile_mips_boot_results_list <- list()
 
-    corr_value <- cor(data[target_vars])[1, 2]
-    corr_pos_ind <- ifelse(corr_value > 0, 1, 0)
-
     additives <- quantile_importance %>%
       filter(Variable %in% target_vars) %>%
       select(Est)
 
     additive_sum <- sum(additives)
 
-    counterfactual_data <- set_cond_pair_quantiles(data = data, targets = target_vars, cor_dir_ind = corr_pos_ind)
+    for (boot in seq(num_boot)) {
+      nr <- nrow(data)
 
-    if (is.null(counterfactual_data)) {
-      target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
-      result <- data.frame(mat = matrix(ncol = 5, nrow = 1))
-      result$Variables <- paste(target_vars_nice, collapse = " & ")
-      result$Corr <- NA
-    } else {
-      for (boot in seq(num_boot)) {
-        nr <- nrow(data)
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
-        resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      corr_value <- cor(resampled_data[target_vars])[1, 2]
+      corr_pos_ind <- ifelse(corr_value > 0, 1, 0)
 
-        counterfactual_data <- set_cond_pair_quantiles(data = resampled_data, targets = target_vars, cor_dir_ind = corr_pos_ind)
+      counterfactual_data <- set_cond_pair_quantiles(data = resampled_data, targets = target_vars, cor_dir_ind = corr_pos_ind)
 
+      if (is.null(counterfactual_data)) {
+        target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
+        result <- data.frame(mat = matrix(ncol = 5, nrow = 1))
+        result$Variables <- paste(target_vars_nice, collapse = " & ")
+        result$Corr <- NA
+
+        return(result)
+      } else {
         task_data1 <- make_sl3_Task(
           data = counterfactual_data$Data_1,
           outcome = outcome,
