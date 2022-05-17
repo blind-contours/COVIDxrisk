@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Deaths at 1 Year"
-num_boot <- 10
+num_boot <- 100
 var_combn <- 2
 
 run_risk <- FALSE
