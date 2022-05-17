@@ -608,11 +608,13 @@ mips_imp_quantile <- function(quantile_importance,
 
   quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Q4_Q1")
 
-  cut_off <- quantile(quantile_importance$Est, 0.2)
+  cut_off <- quantile(quantile_importance$Est, 0.75)
   variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   X <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
+
+  print(dim(X))
 
   mips_quantile_importance_results <- furrr::future_map_dfr(1:dim(X)[2], function(i) {
     target_vars <- X[, i]
