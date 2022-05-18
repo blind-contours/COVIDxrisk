@@ -380,6 +380,7 @@ var_imp_quantile <- function(X,
 
   quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_boot_results_list <- list()
+    blip_var_x_W <- list()
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
 
@@ -391,7 +392,6 @@ var_imp_quantile <- function(X,
 
       resampled_data_Q1[[i]] <- quantiles[2]
       resampled_data_Q4[[i]] <- quantiles[4]
-
 
       Q1_task <- make_sl3_Task(
         data = resampled_data_Q1,
@@ -420,20 +420,51 @@ var_imp_quantile <- function(X,
                            "Blip_range" = blip_range)
 
       quantile_boot_results_list[[boot]] <- results_list
+
+      find_breaks <- function(i){
+        result <- cut(x = i, breaks = unique(quantile(i)))
+        result <-  as.data.frame(cbind(result, blip)) %>%
+          group_by(result) %>%
+          summarise_at(vars(blip), list(name = mean))
+
+        blip_var <- var(result$name)
+        return(blip_var)
+      }
+
+      blip_var_W <- apply(resampled_data, 2,  FUN = find_breaks)
+
+      blip_var_x_W[[boot]] <- blip_var_W
     }
+
+    blip_intxn_results <- bind_rows(blip_var_x_W)
+    blip_intxn_medians <- apply(blip_intxn_results, 2, median)
+    max_variance <- which.max(blip_intxn_medians)
+    quantiles_max_blip_var <- t(as.data.frame(quantile(blip_intxn_results[[max_variance]], probs <- c(0.025, 0.50, 0.975))))
+
+    pval_blip_var <- apply(quantiles_max_blip_var, 1, p_val_fun)
+
+    blip_var_results <- bind_cols(i, quantiles_max_blip_var, pval_blip_var, names(max_variance))
+    blip_var_results$Condition <- "Blip_Intxn"
+    rownames(blip_var_results) <- NULL
+    colnames(blip_var_results) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Intxn_Var", "Condition")
 
     quantile_boot_results <- bind_rows(quantile_boot_results_list)
 
     quantile_boot_results_CIs <- t(sapply(quantile_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
     pvals <- as.data.frame(apply(quantile_boot_results_CIs, 1, p_val_fun))
-    result <- bind_cols(i, quantile_boot_results_CIs, pvals)
+    result <- bind_cols(i, quantile_boot_results_CIs, pvals, "None")
     result$Condition <- rownames(result)
 
     rownames(result) <- NULL
+
+    colnames(result) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Intxn_Var", "Condition")
+
+    result <- bind_rows(result, blip_var_results)
+
     return(result)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  colnames(quantile_importance) <- c("Variable", "Lower_CI", "Est", "Upper_CI", "P_Value", "Condition")
+
   quantile_importance$Label <- Data_Dictionary$`Nice Label`[match(quantile_importance$Variable, Data_Dictionary$`Variable Name`)]
 
   return(quantile_importance)
@@ -605,10 +636,11 @@ mips_imp_quantile <- function(quantile_importance,
   ######################## QUANTILE BASED INTERACTIONS #########################
   ##############################################################################
 
-  quantile_importance <- quantile_importance %>% filter(Condition == "VTE")
+  quantile_importance_vte <- quantile_importance %>% filter(Condition == "VTE")
+  quantile_importance_vte <- subset(quantile_importance_vte, Est > 0)
 
-  cut_off <- quantile(quantile_importance$Est, 0.75)
-  variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
+  cut_off <- quantile(quantile_importance_vte$Est, 0.75)
+  variable_combinations <- combn(subset(quantile_importance_vte, quantile_importance_vte$Est > cut_off)$Variable, m = 2)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   X <- as.data.frame(variable_combinations)
   ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
@@ -620,7 +652,7 @@ mips_imp_quantile <- function(quantile_importance,
     quantile_mips_boot_results_list <- list()
 
     additives <- quantile_importance %>%
-      filter(Variable %in% target_vars) %>%
+      filter(Variable %in% target_vars & Condition == "ATE") %>%
       select(Est)
 
     additive_sum <- sum(additives)
@@ -630,27 +662,35 @@ mips_imp_quantile <- function(quantile_importance,
 
       resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
+      quantiles_1 <- quantile(resampled_data[[target_vars[1]]])
+      quantiles_2 <- quantile(resampled_data[[target_vars[2]]])
+
       corr_value <- cor(resampled_data[target_vars])[1, 2]
       corr_pos_ind <- ifelse(corr_value > 0, 1, 0)
 
-      counterfactual_data <- set_cond_pair_quantiles(data = resampled_data, targets = target_vars, cor_dir_ind = corr_pos_ind)
+      resampled_data_1 <- resampled_data_2 <- resampled_data
 
-      if (is.null(counterfactual_data)) {
-        target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
-        result <- data.frame(mat = matrix(ncol = 5, nrow = 1))
-        result$Variables <- paste(target_vars_nice, collapse = " & ")
-        result$Corr <- NA
+      if (corr_pos_ind == 1) {
+        resampled_data_1[target_vars[1]] <- quantiles_1[2]
+        resampled_data_1[target_vars[2]] <- quantiles_2[2]
 
-        return(result)
-      } else {
+        resampled_data_2[target_vars[1]] <- quantiles_1[4]
+        resampled_data_2[target_vars[2]] <- quantiles_2[4]
+      }else{
+        resampled_data_1[target_vars[1]] <- quantiles_1[2]
+        resampled_data_1[target_vars[2]] <- quantiles_2[4]
+
+        resampled_data_2[target_vars[1]] <- quantiles_1[4]
+        resampled_data_2[target_vars[2]] <- quantiles_2[2]
+      }
         task_data1 <- make_sl3_Task(
-          data = counterfactual_data$Data_1,
+          data = resampled_data_1,
           outcome = outcome,
           covariates = covars
         )
 
         task_data2 <- make_sl3_Task(
-          data = counterfactual_data$Data_2,
+          data = resampled_data_2,
           outcome = outcome,
           covariates = covars
         )
@@ -684,7 +724,6 @@ mips_imp_quantile <- function(quantile_importance,
       rownames(result) <- NULL
 
       result$Corr <- corr_value
-    }
 
 
     return(result)
