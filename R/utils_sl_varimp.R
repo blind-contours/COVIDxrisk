@@ -389,20 +389,22 @@ var_imp_quantile <- function(X,
 
       resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
-      # all non-target at 25%
-      counterfactual_data <- set_cond_quantiles(data = resampled_data, target = i)
+      quantiles <- quantile(resampled_data[[i]])
 
-      Q1_data <- counterfactual_data$Q1_data
-      Q4_data <- counterfactual_data$Q4_data
+      resampled_data_Q1 <- resampled_data_Q4 <- resampled_data
+
+      resampled_data_Q1[[i]] <- quantiles[2]
+      resampled_data_Q4[[i]] <- quantiles[4]
+
 
       Q1_task <- make_sl3_Task(
-        data = Q1_data,
+        data = resampled_data_Q1,
         covariates = covars,
         outcome = outcome
       )
 
       Q4_task <- make_sl3_Task(
-        data = Q4_data,
+        data = resampled_data_Q4,
         covariates = covars,
         outcome = outcome
       )
@@ -410,9 +412,17 @@ var_imp_quantile <- function(X,
       Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
       Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
 
-      delta_Q4_Q1 <- Q4_predictions - Q1_predictions
+      blip <- Q4_predictions - Q1_predictions
+      ATE <- mean(blip)
+      VTE <- var(blip)
+      blip_min <- range(blip)[1]
+      blip_max <- range(blip)[2]
+      blip_range <- blip_max - blip_min
 
-      results_list <- list("Delta_Q4_Q1" = delta_Q4_Q1, "Ref_Dist" = counterfactual_data$Dist)
+      results_list <- list("ATE" = ATE, "VTE" = VTE,
+                           "Blip_min" = blip_min, "Blip_max" = blip_max,
+                           "Blip_range" = blip_range)
+
       quantile_boot_results_list[[boot]] <- results_list
     }
 
@@ -599,9 +609,9 @@ mips_imp_quantile <- function(quantile_importance,
   ######################## QUANTILE BASED INTERACTIONS #########################
   ##############################################################################
 
-  quantile_importance <- quantile_importance %>% filter(Condition == "Delta_Q4_Q1")
+  quantile_importance <- quantile_importance %>% filter(Condition == "VTE")
 
-  cut_off <- quantile(quantile_importance$Est, 0.97)
+  cut_off <- quantile(quantile_importance$Est, 0.75)
   variable_combinations <- combn(subset(quantile_importance, quantile_importance$Est > cut_off)$Variable, m = 2)
   ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
   X <- as.data.frame(variable_combinations)
