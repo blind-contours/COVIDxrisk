@@ -68,13 +68,9 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
     for (i in colnames(data)) {
       if (i %in% target) {
         data[[i]] <- quantile(data[[i]], target_q)
-      } else {
-        data[[i]] <- quantile(data[[i]], nontarget_q)
+      }
       }
     }
-  }
-
-  data <- data[1, ]
 
   return(data)
 }
