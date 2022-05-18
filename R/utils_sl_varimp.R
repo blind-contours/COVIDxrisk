@@ -647,7 +647,10 @@ mips_imp_quantile <- function(quantile_importance,
 
   print(dim(X))
 
-  mips_quantile_importance_results <- furrr::future_map_dfr(1:dim(X)[2], function(i) {
+  mips_quantile_importance_results <- for (i in 1:dim(X)[2]) {
+
+    print(i)
+
     target_vars <- X[, i]
     quantile_mips_boot_results_list <- list()
 
@@ -724,10 +727,11 @@ mips_imp_quantile <- function(quantile_importance,
       rownames(result) <- NULL
 
       result$Corr <- corr_value
+  }
 
 
-    return(result)
-  }, .options = furrr::furrr_options(seed = TRUE))
+  #   return(result)
+  # }, .options = furrr::furrr_options(seed = TRUE))
 
   colnames(mips_quantile_importance_results) <- c("Lower_CI", "Est", "Upper_CI", "P_Value", "Condition", "Variable_Comb", "Correlation")
 
