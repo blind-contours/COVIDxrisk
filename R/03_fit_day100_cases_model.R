@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 25
+cpus <- 10
 plan(multisession, workers = cpus)
 
 set.seed(5929922)
@@ -126,7 +126,6 @@ if(run_risk == TRUE){
     loss = loss_squared_error,
     Y = Y,
     num_boot = num_boot,
-    total,
     Data_Dictionary = data_dictionary,
     total = total_outcome,
     p_val_fun = p_val_fun

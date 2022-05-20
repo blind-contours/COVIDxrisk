@@ -435,7 +435,7 @@ var_imp_quantile <- function(X,
 
       quantile_boot_results_list[[boot]] <- results_list
 
-      blip_var_W <- apply(resampled_data, 2,  FUN = find_breaks)
+      blip_var_W <- apply(resampled_data[, -c(1:8)], 2,  FUN = find_breaks)
 
       blip_var_x_W[[boot]] <- blip_var_W
     }
