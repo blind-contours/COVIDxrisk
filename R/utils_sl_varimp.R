@@ -51,6 +51,8 @@ p_val_fun <- function(x) {
   return(P)
 }
 
+
+
 set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_flag = FALSE) {
   if (subcategory_flag == FALSE) {
     if (is.null(nontarget_q)) {
@@ -381,6 +383,18 @@ var_imp_quantile <- function(X,
   quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_boot_results_list <- list()
     blip_var_x_W <- list()
+
+    find_breaks <- function(i){
+      result <- cut(x = i, breaks = unique(quantile(i)))
+      result <-  as.data.frame(cbind(result, blip)) %>%
+        group_by(result) %>%
+        summarise_at(vars(blip), list(name = mean))
+
+      blip_var <- var(result$name)
+      return(blip_var)
+    }
+
+
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
 
@@ -421,16 +435,6 @@ var_imp_quantile <- function(X,
 
       quantile_boot_results_list[[boot]] <- results_list
 
-      find_breaks <- function(i){
-        result <- cut(x = i, breaks = unique(quantile(i)))
-        result <-  as.data.frame(cbind(result, blip)) %>%
-          group_by(result) %>%
-          summarise_at(vars(blip), list(name = mean))
-
-        blip_var <- var(result$name)
-        return(blip_var)
-      }
-
       blip_var_W <- apply(resampled_data, 2,  FUN = find_breaks)
 
       blip_var_x_W[[boot]] <- blip_var_W
@@ -439,6 +443,7 @@ var_imp_quantile <- function(X,
     blip_intxn_results <- bind_rows(blip_var_x_W)
     blip_intxn_medians <- apply(blip_intxn_results, 2, median)
     max_variance <- which.max(blip_intxn_medians)
+
     quantiles_max_blip_var <- t(as.data.frame(quantile(blip_intxn_results[[max_variance]], probs <- c(0.025, 0.50, 0.975))))
 
     pval_blip_var <- apply(quantiles_max_blip_var, 1, p_val_fun)
@@ -462,6 +467,7 @@ var_imp_quantile <- function(X,
     result <- bind_rows(result, blip_var_results)
 
     return(result)
+
   }, .options = furrr::furrr_options(seed = TRUE))
 
 
@@ -636,104 +642,94 @@ mips_imp_quantile <- function(quantile_importance,
   ######################## QUANTILE BASED INTERACTIONS #########################
   ##############################################################################
 
-  quantile_importance_vte <- quantile_importance %>% filter(Condition == "VTE")
-  quantile_importance_vte <- subset(quantile_importance_vte, Est > 0)
+  quantile_importance_blip_var <- quantile_importance %>% filter(Condition == "Blip_Intxn")
+  max_quantile_importance_blip_var <- quantile_importance_blip_var[which.max(quantile_importance_blip_var$Est),]
 
-  cut_off <- quantile(quantile_importance_vte$Est, 0.75)
-  variable_combinations <- combn(subset(quantile_importance_vte, quantile_importance_vte$Est > cut_off)$Variable, m = 2)
-  ### Create list with all intxn_size interactions for the intxn_list variable set of interest:
-  X <- as.data.frame(variable_combinations)
-  ### Run the additive vs. joint error calculation for each set of possible interactions of selected size:
+  A <- max_quantile_importance_blip_var$Variable
+  W <- max_quantile_importance_blip_var$Intxn_Var
 
-  print(dim(X))
+  mips_quantile_importance_results <- furrr::future_map_dfr(seq(num_boot), function(boot) {
 
-  mips_quantile_importance_results <- for (i in 1:dim(X)[2]) {
-
-    print(i)
-
-    target_vars <- X[, i]
-    quantile_mips_boot_results_list <- list()
-
-    additives <- quantile_importance %>%
-      filter(Variable %in% target_vars & Condition == "ATE") %>%
-      select(Est)
-
-    additive_sum <- sum(additives)
-
-    for (boot in seq(num_boot)) {
       nr <- nrow(data)
 
       resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
 
-      quantiles_1 <- quantile(resampled_data[[target_vars[1]]])
-      quantiles_2 <- quantile(resampled_data[[target_vars[2]]])
+      quantiles_A <- quantile(resampled_data[[A]])
+      quantiles_W <- quantile(resampled_data[[W]])
 
-      corr_value <- cor(resampled_data[target_vars])[1, 2]
-      corr_pos_ind <- ifelse(corr_value > 0, 1, 0)
+      resampled_data_Q1 <- resampled_data_Q4 <- resampled_data
 
-      resampled_data_1 <- resampled_data_2 <- resampled_data
+      resampled_data_Q1[[A]] <- quantiles_A[2]
+      resampled_data_Q4[[A]] <- quantiles_A[4]
 
-      if (corr_pos_ind == 1) {
-        resampled_data_1[target_vars[1]] <- quantiles_1[2]
-        resampled_data_1[target_vars[2]] <- quantiles_2[2]
+      Q1_task <- make_sl3_Task(
+        data = resampled_data_Q1,
+        covariates = covars,
+        outcome = outcome
+      )
 
-        resampled_data_2[target_vars[1]] <- quantiles_1[4]
-        resampled_data_2[target_vars[2]] <- quantiles_2[4]
-      }else{
-        resampled_data_1[target_vars[1]] <- quantiles_1[2]
-        resampled_data_1[target_vars[2]] <- quantiles_2[4]
+      Q4_task <- make_sl3_Task(
+        data = resampled_data_Q4,
+        covariates = covars,
+        outcome = outcome
+      )
 
-        resampled_data_2[target_vars[1]] <- quantiles_1[4]
-        resampled_data_2[target_vars[2]] <- quantiles_2[2]
-      }
-        task_data1 <- make_sl3_Task(
-          data = resampled_data_1,
-          outcome = outcome,
-          covariates = covars
-        )
+      Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
+      Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
 
-        task_data2 <- make_sl3_Task(
-          data = resampled_data_2,
-          outcome = outcome,
-          covariates = covars
-        )
+      blip <- Q4_predictions - Q1_predictions
 
-        data1_sl_preds <- fit$predict_fold(task_data1, fold_number = "full") * total
-        data2_sl_preds <- fit$predict_fold(task_data2, fold_number = "full") * total
+      W_quant <- cut(resampled_data[[W]], breaks = quantile(resampled_data[[W]]), include.lowest = TRUE)
 
-        if (corr_pos_ind == 1) {
-          varimp_metric <- mean(data1_sl_preds - data2_sl_preds)
-        } else {
-          varimp_metric <- mean(abs(data1_sl_preds - data2_sl_preds))
-        }
+      blip_by_quant <- as.data.frame(cbind(blip, W_quant)) %>%
+        group_by(W_quant) %>%
+        summarise_at(vars(blip), list(name = mean))
 
-        joint_additive_diff <- varimp_metric - additive_sum
+      blip_by_quant <- t(blip_by_quant)
+      blip_by_quant <- blip_by_quant[2,]
 
-        results_list <- list("Joint_Diff" = varimp_metric, "Additive_Diff" = additive_sum, "Interaction" = joint_additive_diff)
+      Q4_by_quant <- as.data.frame(cbind(Q4_predictions, W_quant)) %>%
+        group_by(W_quant) %>%
+        summarise_at(vars(Q4_predictions), list(name = mean))
 
-        quantile_mips_boot_results_list[[boot]] <- results_list
-      }
+      Q4_by_quant <- t(Q4_by_quant)
+      Q4_by_quant <- Q4_by_quant[2,]
 
-      quantile_mips_boot_results <- bind_rows(quantile_mips_boot_results_list)
-      quantile_mips_results_CIs <- t(sapply(quantile_mips_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
-      pvals <- as.data.frame(apply(quantile_mips_results_CIs, 1, p_val_fun))
+      Q1_by_quant <- as.data.frame(cbind(Q1_predictions, W_quant)) %>%
+        group_by(W_quant) %>%
+        summarise_at(vars(Q1_predictions), list(name = mean))
 
-      target_vars_nice <- Data_Dictionary$`Nice Label`[match(target_vars, Data_Dictionary$`Variable Name`)]
+      Q1_by_quant <- t(Q1_by_quant)
+      Q1_by_quant <- Q1_by_quant[2,]
 
-      result <- bind_cols(quantile_mips_results_CIs, pvals)
-      result$Condition <- rownames(result)
-      result$Variables <- paste(target_vars_nice, collapse = " & ")
+      boot_result <- as.data.frame(rbind(Q4_by_quant, Q1_by_quant, blip_by_quant))
 
-      rownames(result) <- NULL
+      boot_result$Condition <- rownames(boot_result)
 
-      result$Corr <- corr_value
-  }
+      return(boot_result)
 
+  }, .options = furrr::furrr_options(seed = TRUE))
 
-  #   return(result)
-  # }, .options = furrr::furrr_options(seed = TRUE))
+  Q1_results <- subset(mips_quantile_importance_results, Condition == "Q1_by_quant")
+  Q4_results <- subset(mips_quantile_importance_results, Condition == "Q4_by_quant")
+  Blip_results <- subset(mips_quantile_importance_results, Condition == "blip_by_quant")
 
-  colnames(mips_quantile_importance_results) <- c("Lower_CI", "Est", "Upper_CI", "P_Value", "Condition", "Variable_Comb", "Correlation")
+  Q1_quantiles <- as.data.frame(t(as.data.frame(apply(Q1_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+  Q1_quantiles$Condition <- "Q1_preds"
+  rownames(Q1_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
 
-  return(mips_quantile_importance_results)
+  Q4_quantiles <- as.data.frame(t(as.data.frame(apply(Q4_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+  Q4_quantiles$Condition <- "Q4_preds"
+  rownames(Q4_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
+
+  Blip_quantiles <- as.data.frame(t(as.data.frame(apply(Blip_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+  Blip_quantiles$Condition <- "Q1_preds"
+  rownames(Blip_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
+
+  result <- bind_rows(Q4_quantiles, Q1_quantiles, Blip_quantiles)
+
+  result$Target_var <- A
+  result$EM_var <- W
+
+  return(result)
 }
