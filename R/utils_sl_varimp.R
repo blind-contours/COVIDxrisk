@@ -1,3 +1,7 @@
+################################################################################
+################### CREATE SUPER LEARNER MODEL #################################
+################################################################################
+
 create_sl <- function(data = covid_data_processed,
                       outcome = outcome,
                       all_outcomes = all_outcomes) {
@@ -22,6 +26,10 @@ create_sl <- function(data = covid_data_processed,
   return(list("sl_fit" = sl_fit, "covars" = covars))
 }
 
+################################################################################
+############################## LOAD DATA  ######################################
+################################################################################
+
 load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
                       path_data_dict = "Data_Dictionary.xlsx") {
   ## load data
@@ -44,6 +52,13 @@ load_data <- function(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
   return(list("data" = covid_data_processed, "data_dictionary" = Data_Dictionary))
 }
 
+
+################################################################################
+############################## P-VALUE  ########################################
+################################################################################
+
+
+
 p_val_fun <- function(x) {
   SE <- (x[3] - x[1]) / (2 * 1.96)
   z <- x[2] / SE
@@ -51,7 +66,24 @@ p_val_fun <- function(x) {
   return(P)
 }
 
+################################################################################
+##################### BLIP IN QUANTILES OF EACH W ##############################
+################################################################################
 
+find_breaks <- function(i){
+  result <- cut(x = i, breaks = unique(quantile(i)))
+  result <-  as.data.frame(cbind(result, blip)) %>%
+    group_by(result) %>%
+    summarise_at(vars(blip), list(name = mean))
+
+  blip_var <- var(result$name)
+  return(blip_var)
+
+}
+
+################################################################################
+############################# SET QUANTILE VALUES ##############################
+################################################################################
 
 set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_flag = FALSE) {
   if (subcategory_flag == FALSE) {
@@ -77,145 +109,9 @@ set_quantiles <- function(data, X, target, target_q, nontarget_q, subcategory_fl
   return(data)
 }
 
-set_cond_quantiles <- function(data, target) {
-
-  quantiles <- quantile(data[[target]])
-
-  q1_group <- data[data[[target]] <= quantiles[2], ]
-  q4_group <- data[data[[target]] >= quantiles[4], ]
-
-  pairwise_dist <- dist2(
-    x = scale(q1_group[, which(colnames(q1_group) != target)]),
-    y = scale(q4_group[, which(colnames(q4_group) != target)])
-  )
-
-  min_dist <- min(pairwise_dist)
-  min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
-
-  selected_q1 <- q1_group[min_element_index[, 1], ]
-  selected_q4 <- q4_group[min_element_index[, 2], ]
-
-  selected_q1[[target]] <- quantiles[2]
-  selected_q4[[target]] <- quantiles[4]
-
-  selected_q1 <- selected_q1[1, ]
-  selected_q4 <- selected_q4[1, ]
-
-  return(list("Q4_data" = selected_q4, "Q1_data" = selected_q1, "Dist" = min_dist))
-}
-
-set_cond_pair_quantiles <- function(data, targets, cor_dir_ind) {
-
-  # rownames(data) <- data$fips
-  data_scaled <- as.data.frame(scale(data))
-
-  quantiles_t1 <- quantile(data_scaled[[targets[1]]])
-  quantiles_t2 <- quantile(data_scaled[[targets[2]]])
-
-  if (cor_dir_ind == 1) {
-    q11_group_ind <- data_scaled[[targets[1]]] <= quantiles_t1[2] & data_scaled[[targets[2]]] <= quantiles_t2[2]
-    q44_group_ind <- data_scaled[[targets[1]]] >= quantiles_t1[4] & data_scaled[[targets[2]]] >= quantiles_t2[4]
-
-    no_support_flag <- any(length(unique(q11_group_ind)) == 1 | length(unique(q44_group_ind)) == 1)
-
-    if (no_support_flag == TRUE) {
-      return(NULL)
-    } else {
-      q11_group <- data_scaled[q11_group_ind, ]
-      q44_group <- data_scaled[q44_group_ind, ]
-    }
-
-    pairwise_dist <- dist2(
-      x = q11_group[, which(colnames(q11_group) %notin% targets)],
-      y = q44_group[, which(colnames(q44_group) %notin% targets)]
-    )
-
-    min_dist <- min(pairwise_dist)
-    min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
-
-    if (dim(min_element_index)[2] == 1) {
-      selected_q11_obs <- q11_group[min_element_index[, 1], ]
-      selected_q44_obs <- q44_group[min_element_index[, 2], ]
-    } else {
-      selected_q11_obs <- q11_group[min_element_index[1, 1], ]
-      selected_q44_obs <- q44_group[min_element_index[1, 2], ]
-    }
-
-    selected_q11_obs[[targets[1]]] <- quantiles_t1[2]
-    selected_q11_obs[[targets[2]]] <- quantiles_t2[2]
-
-    selected_q44_obs[[targets[1]]] <- quantiles_t1[4]
-    selected_q44_obs[[targets[2]]] <- quantiles_t2[4]
-
-    return(list("Data_1" = selected_q44_obs, "Data_2" = selected_q11_obs))
-  } else {
-    q14_group_ind <- data_scaled[[targets[1]]] <= quantiles_t1[2] & data_scaled[[targets[2]]] >= quantiles_t2[4]
-    q41_group_ind <- data_scaled[[targets[1]]] >= quantiles_t1[4] & data_scaled[[targets[2]]] <= quantiles_t2[2]
-
-    no_support_flag <- any(length(unique(q14_group_ind)) == 1 | length(unique(q41_group_ind)) == 1)
-
-    if (no_support_flag == TRUE) {
-      return(NULL)
-    } else {
-      q14_group <- data_scaled[q14_group_ind, ]
-      q41_group <- data_scaled[q41_group_ind, ]
-    }
-
-    pairwise_dist <- dist2(
-      x = q14_group[, which(colnames(q14_group) %notin% targets)],
-      y = q41_group[, which(colnames(q41_group) %notin% targets)]
-    )
-
-    min_dist <- min(pairwise_dist)
-    min_element_index <- which(pairwise_dist == min_dist, arr.ind = TRUE)
-
-    if (dim(min_element_index)[2] == 1) {
-      selected_q14_obs <- q14_group[min_element_index[, 1], ]
-      selected_q41_obs <- q41_group[min_element_index[, 2], ]
-    } else {
-      selected_q14_obs <- q14_group[min_element_index[1, 1], ]
-      selected_q41_obs <- q41_group[min_element_index[1, 2], ]
-    }
-
-    selected_q14_obs[[targets[1]]] <- quantiles_t1[2]
-    selected_q14_obs[[targets[2]]] <- quantiles_t2[4]
-
-    selected_q41_obs[[targets[1]]] <- quantiles_t1[4]
-    selected_q41_obs[[targets[2]]] <- quantiles_t2[2]
-
-    return(list("Data_1" = selected_q14_obs, "Data_2" = selected_q41_obs))
-  }
-}
-
-set_mips_quantiles <- function(data, targets, target_qs, nontarget_q) {
-  threshs <- list()
-  for (var_i in seq(targets)) {
-    target <- targets[var_i]
-    thresh_i <- quantile(data[[target]], probs = target_qs[var_i])
-    threshs[var_i] <- thresh_i
-  }
-  threshs <- unlist(threshs)
-
-  for (thresh in seq(threshs)) {
-    target <- targets[thresh]
-    if (target_qs[thresh] == 0.25) {
-      data <- data[data[[target]] <= threshs[thresh], ]
-    } else {
-      data <- data[data[[target]] >= threshs[thresh], ]
-    }
-  }
-
-  medians <- as.data.frame(matrix(sapply(data, quantile, probs = nontarget_q), nrow = 1))
-  colnames(medians) <- colnames(data)
-
-  for (i in seq(targets)) {
-    target <- targets[i]
-    medians[[target]] <- threshs[i]
-  }
-  # medians <- sapply(medians, rep.int, times=10)
-  # medians <- as.data.frame(medians)
-  return(medians)
-}
+################################################################################
+############################# LOAD INFO FROM MODEL #############################
+################################################################################
 
 load_model <- function(fit,
                        loss,
@@ -223,6 +119,7 @@ load_model <- function(fit,
                        outcome,
                        data = covid_data_processed,
                        Data_Dictionary = Data_Dictionary) {
+
   task <- fit$training_task
   dat <- task$data
   X <- task$nodes$covariates
@@ -254,11 +151,20 @@ load_model <- function(fit,
   )
 }
 
-var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_Dictionary) {
+################################################################################
+####################### VARIABLE IMPORTANCE RISK ###############################
+################################################################################
 
-  ##########################################################################################
-  ######################## VARIABLE IMPORTANCE BASED ON RISK ###############################
-  ##########################################################################################
+var_imp_risk <- function(X,
+                         data,
+                         outcome,
+                         covars,
+                         fit,
+                         loss,
+                         Y,
+                         num_boot,
+                         Data_Dictionary) {
+
 
   risk_importance <- furrr::future_map_dfr(X, function(i) {
     boot_results_list <- list()
@@ -306,15 +212,19 @@ var_imp_risk <- function(X, data, outcome, covars, fit, loss, Y, num_boot, Data_
   return(risk_importance)
 }
 
-subcat_imp_risk <- function(subcategories, data,
-                            outcome, covars,
-                            fit, loss,
-                            Y, num_boot,
-                            variable_list) {
+################################################################################
+################### SUBGROUP IMPORTANCE BASED ON RISK ##########################
+################################################################################
 
-  ##########################################################################################
-  ######################## SUBGROUP IMPORTANCE BASED ON RISK ###############################
-  ##########################################################################################
+subcat_imp_risk <- function(subcategories,
+                            data,
+                            outcome,
+                            covars,
+                            fit,
+                            loss,
+                            Y,
+                            num_boot,
+                            variable_list) {
 
   X <- unique(subcategories)
   X <- X[X != "outcome"]
@@ -362,6 +272,11 @@ subcat_imp_risk <- function(subcategories, data,
   return(subgroup_risk_importance)
 }
 
+
+################################################################################
+################### VARIABLE IMPORTANCE QUANTILE ###############################
+################################################################################
+
 var_imp_quantile <- function(X,
                              data,
                              outcome,
@@ -375,25 +290,9 @@ var_imp_quantile <- function(X,
                              Data_Dictionary,
                              p_val_fun) {
 
-
-  ##############################################################################
-  ######################## QUANTILE INTERACTIONS ###############################
-  ##############################################################################
-
   quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_boot_results_list <- list()
     blip_var_x_W <- list()
-
-    find_breaks <- function(i){
-      result <- cut(x = i, breaks = unique(quantile(i)))
-      result <-  as.data.frame(cbind(result, blip)) %>%
-        group_by(result) %>%
-        summarise_at(vars(blip), list(name = mean))
-
-      blip_var <- var(result$name)
-      return(blip_var)
-    }
-
 
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
@@ -429,8 +328,10 @@ var_imp_quantile <- function(X,
       blip_max <- range(blip)[2]
       blip_range <- blip_max - blip_min
 
-      results_list <- list("ATE" = ATE, "VTE" = VTE,
-                           "Blip_min" = blip_min, "Blip_max" = blip_max,
+      results_list <- list("ATE" = ATE,
+                           "VTE" = VTE,
+                           "Blip_min" = blip_min,
+                           "Blip_max" = blip_max,
                            "Blip_range" = blip_range)
 
       quantile_boot_results_list[[boot]] <- results_list
@@ -444,7 +345,8 @@ var_imp_quantile <- function(X,
     blip_intxn_medians <- apply(blip_intxn_results, 2, median)
     max_variance <- which.max(blip_intxn_medians)
 
-    quantiles_max_blip_var <- t(as.data.frame(quantile(blip_intxn_results[[max_variance]], probs <- c(0.025, 0.50, 0.975))))
+    quantiles_max_blip_var <- t(as.data.frame(quantile(blip_intxn_results[[max_variance]],
+                                                       probs <- c(0.025, 0.50, 0.975))))
 
     pval_blip_var <- apply(quantiles_max_blip_var, 1, p_val_fun)
 
@@ -455,7 +357,9 @@ var_imp_quantile <- function(X,
 
     quantile_boot_results <- bind_rows(quantile_boot_results_list)
 
-    quantile_boot_results_CIs <- t(sapply(quantile_boot_results, quantile, probs <- c(0.025, 0.50, 0.975)))
+    quantile_boot_results_CIs <- t(sapply(quantile_boot_results, quantile,
+                                          probs <- c(0.025, 0.50, 0.975)))
+
     pvals <- as.data.frame(apply(quantile_boot_results_CIs, 1, p_val_fun))
     result <- bind_cols(i, quantile_boot_results_CIs, pvals, "None")
     result$Condition <- rownames(result)
@@ -476,6 +380,10 @@ var_imp_quantile <- function(X,
   return(quantile_importance)
 }
 
+################################################################################
+#################### SUBGROUP QUANTILE IMPORTANCE ##############################
+################################################################################
+
 subcat_imp_quantile <- function(subcategories,
                                 data,
                                 outcome,
@@ -489,10 +397,6 @@ subcat_imp_quantile <- function(subcategories,
                                 Data_Dictionary,
                                 p_val_fun) {
 
-  #####################################################################################
-  ######################## SUBGROUP QUANTILE IMPORTANCE ###############################
-  #####################################################################################
-
   X <- unique(subcategories)
   X <- X[X != "outcome"]
 
@@ -501,12 +405,25 @@ subcat_imp_quantile <- function(subcategories,
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
 
-      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data <- as.data.frame(data[sample(1:nr,
+                                                  size = nr,
+                                                  replace = TRUE), ])
 
       subcat_vars <- variable_list[which(subcategories %in% i)]
 
-      subcat_25_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.25, nontarget_q = 0.5, subcategory_flag = TRUE)
-      subcat_75_nontarget_obs <- set_quantiles(data = resampled_data, X, target = subcat_vars, target_q = 0.75, nontarget_q = 0.5, subcategory_flag = TRUE)
+      subcat_25_nontarget_obs <- set_quantiles(data = resampled_data,
+                                               X,
+                                               target = subcat_vars,
+                                               target_q = 0.25,
+                                               nontarget_q = NULL,
+                                               subcategory_flag = TRUE)
+
+      subcat_75_nontarget_obs <- set_quantiles(data = resampled_data,
+                                               X,
+                                               target = subcat_vars,
+                                               target_q = 0.75,
+                                               nontarget_q = NULL,
+                                               subcategory_flag = TRUE)
 
       task_sub_cat_75_nontarget_obs <- make_sl3_Task(
         data = subcat_75_nontarget_obs,
@@ -520,18 +437,25 @@ subcat_imp_quantile <- function(subcategories,
         outcome = outcome
       )
 
-      subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs, fold_number = "full")
-      subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs, fold_number = "full")
+      subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs,
+                                                    fold_number = "full")
+
+      subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs,
+                                                    fold_number = "full")
 
       varimp_metric <- mean(subcat_75_obs_predictions - subcat_25_obs_predictions)
 
       quantile_subcat_boot_results_list[[boot]] <- varimp_metric
     }
 
-    quantiles <- quantile(unlist(quantile_subcat_boot_results_list), probs <- c(0.025, 0.50, 0.975))
+    quantiles <- quantile(unlist(quantile_subcat_boot_results_list),
+                          probs <- c(0.025, 0.50, 0.975))
     p_val <- p_val_fun(quantiles)
 
-    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]], "Est" = quantiles[[2]], "Upper_CI" = quantiles[[3]], "P_Value" = p_val)
+    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]],
+                         "Est" = quantiles[[2]],
+                         "Upper_CI" = quantiles[[3]],
+                         "P_Value" = p_val)
 
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
@@ -540,6 +464,10 @@ subcat_imp_quantile <- function(subcategories,
 
   return(subgroup_quantile_importance)
 }
+
+################################################################################
+######################### MIPS INTERACTIONS RISK ###############################
+################################################################################
 
 
 mips_imp_risk <- function(risk_importance,
@@ -554,10 +482,6 @@ mips_imp_risk <- function(risk_importance,
                           Data_Dictionary,
                           p_val_fun,
                           risk) {
-
-  ##############################################################################
-  ######################## JOINT PERM INTERACTIONS #############################
-  ##############################################################################
 
   cut_off <- quantile(risk_importance$Est, 0.75)
   variable_combinations <- combn(subset(risk_importance, risk_importance$Est > cut_off)$Variable, m = m)
@@ -625,6 +549,10 @@ mips_imp_risk <- function(risk_importance,
   return(permuted_importance)
 }
 
+################################################################################
+####################### MIPS INTERACTIONS QUANTILE #############################
+################################################################################
+
 mips_imp_quantile <- function(quantile_importance,
                               data,
                               outcome,
@@ -638,21 +566,26 @@ mips_imp_quantile <- function(quantile_importance,
                               p_val_fun,
                               total) {
 
-  ##############################################################################
-  ######################## QUANTILE BASED INTERACTIONS #########################
-  ##############################################################################
+  quantile_importance_blip_var <- quantile_importance %>%
+    filter(Condition == "Blip_Intxn")
+  quantile_importance_blip_var <- quantile_importance_blip_var[quantile_importance_blip_var$Variable %notin% c("CentroidLon", "CentroidLat"), ]
 
-  quantile_importance_blip_var <- quantile_importance %>% filter(Condition == "Blip_Intxn")
-  max_quantile_importance_blip_var <- quantile_importance_blip_var[which.max(quantile_importance_blip_var$Est),]
+  quantile_importance_blip_var <- quantile_importance_blip_var[quantile_importance_blip_var$Est > 0 ,]
 
-  A <- max_quantile_importance_blip_var$Variable
-  W <- max_quantile_importance_blip_var$Intxn_Var
+  # max_quantile_importance_blip_var <- quantile_importance_blip_var[which.max(quantile_importance_blip_var$Est),]
+  mips_quantile_importance_results <- furrr::future_map_dfr(1:nrow(quantile_importance_blip_var),
+                                                            function(i) {
+  A <- quantile_importance_blip_var[i,]$Variable
+  W <- quantile_importance_blip_var[i,]$Intxn_Var
 
-  mips_quantile_importance_results <- furrr::future_map_dfr(seq(num_boot), function(boot) {
+  boot_result_list <- list()
+
+  for (boot in seq(num_boot)) {
 
       nr <- nrow(data)
 
-      resampled_data <- as.data.frame(data[sample(1:nr, size = nr, replace = TRUE), ])
+      resampled_data <- as.data.frame(data[sample(1:nr, size = nr,
+                                                  replace = TRUE), ])
 
       quantiles_A <- quantile(resampled_data[[A]])
       quantiles_W <- quantile(resampled_data[[W]])
@@ -674,12 +607,16 @@ mips_imp_quantile <- function(quantile_importance,
         outcome = outcome
       )
 
-      Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
-      Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
+      Q1_predictions <- fit$predict_fold(task = Q1_task,
+                                         fold_number = "full") * total
+      Q4_predictions <- fit$predict_fold(task = Q4_task,
+                                         fold_number = "full") * total
 
       blip <- Q4_predictions - Q1_predictions
 
-      W_quant <- cut(resampled_data[[W]], breaks = quantile(resampled_data[[W]]), include.lowest = TRUE)
+      W_quant <- cut(resampled_data[[W]],
+                     breaks = quantile(resampled_data[[W]]),
+                     include.lowest = TRUE)
 
       blip_by_quant <- as.data.frame(cbind(blip, W_quant)) %>%
         group_by(W_quant) %>%
@@ -706,30 +643,37 @@ mips_imp_quantile <- function(quantile_importance,
 
       boot_result$Condition <- rownames(boot_result)
 
-      return(boot_result)
+      boot_result_list[[boot]] <- boot_result
 
-  }, .options = furrr::furrr_options(seed = TRUE))
+    }
 
-  Q1_results <- subset(mips_quantile_importance_results, Condition == "Q1_by_quant")
-  Q4_results <- subset(mips_quantile_importance_results, Condition == "Q4_by_quant")
-  Blip_results <- subset(mips_quantile_importance_results, Condition == "blip_by_quant")
+  boot_df <- bind_rows(boot_result_list)
+
+  Q1_results <- subset(boot_df, Condition == "Q1_by_quant")
+  Q4_results <- subset(boot_df, Condition == "Q4_by_quant")
+  Blip_results <- subset(boot_df, Condition == "blip_by_quant")
 
   Q1_quantiles <- as.data.frame(t(as.data.frame(apply(Q1_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
   Q1_quantiles$Condition <- "Q1_preds"
-  rownames(Q1_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
+  Q1_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
 
   Q4_quantiles <- as.data.frame(t(as.data.frame(apply(Q4_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
   Q4_quantiles$Condition <- "Q4_preds"
-  rownames(Q4_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
+  Q4_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
 
   Blip_quantiles <- as.data.frame(t(as.data.frame(apply(Blip_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
-  Blip_quantiles$Condition <- "Q1_preds"
-  rownames(Blip_quantiles) <- c("Q1", "Q2", "Q3", "Q4")
+  Blip_quantiles$Condition <- "Blip_preds"
+  Blip_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
 
   result <- bind_rows(Q4_quantiles, Q1_quantiles, Blip_quantiles)
 
   result$Target_var <- A
   result$EM_var <- W
 
+  rownames(result) <- NULL
+
   return(result)
+  }, .options = furrr::furrr_options(seed = TRUE))
+
+  return(mips_quantile_importance_results)
 }

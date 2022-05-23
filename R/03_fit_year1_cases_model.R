@@ -25,10 +25,20 @@ run_risk <- FALSE
 
 start_time <- proc.time()
 
-# load in the data
-load_data_results <- load_data(path_data = "cleaned_covid_data_final_Mar_31_22.csv", path_data_dict = "Data_Dictionary.xlsx")
+################################################################################
+############################## LOAD DATA #######################################
+################################################################################
+
+
+load_data_results <- load_data(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
+                               path_data_dict = "Data_Dictionary.xlsx")
 data <- load_data_results$data
 data_dictionary <- load_data_results$data_dictionary
+
+
+################################################################################
+################################# FIT SL #######################################
+################################################################################
 
 # fit the SL model
 sl_fit <- create_sl(data = data, outcome = outcome, all_outcomes = all_outcomes)
@@ -40,6 +50,12 @@ fit_model_time <- proc.time()
 saveRDS(sl, here(paste("Models/", outcome, ".RDS", sep = "")))
 
 print("Finished Model Fitting")
+
+fit_model_time - start_time
+
+################################################################################
+################################ LOAD SL #######################################
+################################################################################
 
 loaded_list <- load_model(
   fit = sl,
@@ -62,97 +78,91 @@ risk <- loaded_list$risk
 
 load_model_time <- proc.time()
 
+load_model_time - fit_model_time
+
+
 plan(multicore, workers = cpus)
 
+################################################################################
+############################ VAR IMP RISK ######################################
+################################################################################
 
-if(run_risk == TRUE){
+var_imp_risk_results <- var_imp_risk(X = X,
+                                     data = data,
+                                     outcome = outcome,
+                                     covars = covars,
+                                     fit = sl,
+                                     loss = loss_squared_error,
+                                     Y = Y,
+                                     num_boot = num_boot,
+                                     Data_Dictionary = data_dictionary)
 
-  var_imp_risk_results <- var_imp_risk(
-    X = X, data = data, outcome = outcome,
-    covars = covars, fit = sl,
-    loss = loss_squared_error, Y = Y, num_boot = num_boot,
-    Data_Dictionary = data_dictionary
-  )
+variable_imp_risk_time <- proc.time()
 
-  variable_imp_risk_time <- proc.time()
+var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
 
-  var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
+saveRDS(var_imp_risk_results, here(paste("data/",
+                                         outcome,
+                                         "_ind_var_imp_risk.RDS",
+                                         sep = "")))
 
-  saveRDS(var_imp_risk_results, here(paste("data/", outcome, "_ind_var_imp_risk.RDS", sep = "")))
-
-  print("Finished Risk Variable Importance")
-
-  subcat_imp_risk_results <- subcat_imp_risk(
-    subcategories = subcategories,
-    data = data, outcome = outcome,
-    covars = covars,
-    fit = sl,
-    loss = loss_squared_error,
-    Y = Y,
-    num_boot = num_boot,
-    variable_list = variable_list)
-
-  subcat_imp_risk_time <- proc.time()
-
-  saveRDS(subcat_imp_risk_results, here(paste("data/", outcome, "_subgroup_imp_risk.RDS", sep = "")))
-
-  mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
-                                data = data,
-                                outcome = outcome,
-                                covars = covars,
-                                fit = sl,
-                                loss = loss_squared_error,
-                                Y= Y,
-                                num_boot = num_boot,
-                                m = var_combn,
-                                Data_Dictionary = data_dictionary,
-                                p_val_fun = p_val_fun,
-                                risk = risk)
-
-  print("Finished MIPS")
-
-  saveRDS(mips_results, here(paste("data/", outcome, "_intxn_imp_risk.RDS", sep = "")))
-
-  print("Finished Risk Sub-Category Importance")
-
-}else{
-
-  var_imp_quantile_results <- var_imp_quantile(
-    X = X,
-    data = data,
-    outcome = outcome,
-    covars = covars,
-    fit = sl,
-    loss = loss_squared_error,
-    Y = Y,
-    num_boot = num_boot,
-    Data_Dictionary = data_dictionary,
-    total = total_outcome,
-    p_val_fun = p_val_fun
-  )
-
-  saveRDS(var_imp_quantile_results, here(paste("data/", outcome, "_ind_var_imp_quantile.RDS", sep = "")))
-
-  print("Finished Quantile-Based Variable Importance")
-
-  subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
-                                                     data = data,
-                                                     outcome = outcome,
-                                                     covars = covars,
-                                                     fit = sl,
-                                                     Y = Y,
-                                                     num_boot = num_boot,
-                                                     variable_list = variable_list,
-                                                     total = total_outcome,
-                                                     Data_Dictionary = data_dictionary,
-                                                     p_val_fun = p_val_fun)
-
-  print("Finished Sub-Category Quantile Importance")
-
-  saveRDS(subcat_imp_quantile_results, here(paste("data/", outcome, "_subgroup_imp_quant.RDS", sep = "")))
+print("Finished Risk Variable Importance")
 
 
-  quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
+################################################################################
+######################### SUBCAT IMP RISK ######################################
+################################################################################
+
+subcat_imp_risk_results <- subcat_imp_risk(
+  subcategories = subcategories,
+  data = data, outcome = outcome,
+  covars = covars,
+  fit = sl,
+  loss = loss_squared_error,
+  Y = Y,
+  num_boot = num_boot,
+  variable_list = variable_list)
+
+subcat_imp_risk_time <- proc.time()
+
+saveRDS(subcat_imp_risk_results, here(paste("data/",
+                                            outcome,
+                                            "_subgroup_imp_risk.RDS",
+                                            sep = "")))
+
+
+
+################################################################################
+################################## INTXN RISK ##################################
+################################################################################
+
+mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
+                              data = data,
+                              outcome = outcome,
+                              covars = covars,
+                              fit = sl,
+                              loss = loss_squared_error,
+                              Y= Y,
+                              num_boot = num_boot,
+                              m = var_combn,
+                              Data_Dictionary = data_dictionary,
+                              p_val_fun = p_val_fun,
+                              risk = risk)
+
+print("Finished MIPS")
+
+saveRDS(mips_results, here(paste("data/",
+                                 outcome, "_intxn_imp_risk.RDS",
+                                 sep = "")))
+
+print("Finished Risk Sub-Category Importance")
+
+
+################################################################################
+############################### VAR IMP QUANTILE ###############################
+################################################################################
+
+var_imp_quantile_results <- var_imp_quantile(X = X,
                                              data = data,
                                              outcome = outcome,
                                              covars = covars,
@@ -160,13 +170,69 @@ if(run_risk == TRUE){
                                              loss = loss_squared_error,
                                              Y = Y,
                                              num_boot = num_boot,
-                                             m = var_combn,
+                                             total,
                                              Data_Dictionary = data_dictionary,
-                                             p_val_fun = p_val_fun,
-                                             total = total_outcome)
+                                             total = total_outcome,
+                                             p_val_fun = p_val_fun
+)
 
-  saveRDS(quantile_mips_results, here(paste("data/", outcome, "_intxn_imp_quantile.RDS", sep = "")))
-}
+saveRDS(var_imp_quantile_results, here(paste("data/",
+                                             outcome,
+                                             "_ind_var_imp_quantile.RDS",
+                                             sep = "")))
+
+print("Finished Quantile-Based Variable Importance")
+
+################################################################################
+############################# SUBCAT IMP QUANTILE ##############################
+################################################################################
+
+subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
+                                                   data = data,
+                                                   outcome = outcome,
+                                                   covars = covars,
+                                                   fit = sl,
+                                                   Y = Y,
+                                                   num_boot = num_boot,
+                                                   variable_list = variable_list,
+                                                   total = total_outcome,
+                                                   Data_Dictionary = data_dictionary,
+                                                   p_val_fun = p_val_fun)
+
+print("Finished Sub-Category Quantile Importance")
+
+saveRDS(subcat_imp_quantile_results, here(paste("data/",
+                                                outcome,
+                                                "_subgroup_imp_quant.RDS",
+                                                sep = "")))
+
+
+################################################################################
+############################### INTXN QUANTILE #################################
+################################################################################
+
+
+quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
+                                           data = data,
+                                           outcome = outcome,
+                                           covars = covars,
+                                           fit = sl,
+                                           loss = loss_squared_error,
+                                           Y = Y,
+                                           num_boot = num_boot,
+                                           m = var_combn,
+                                           Data_Dictionary = data_dictionary,
+                                           p_val_fun = p_val_fun,
+                                           total = total_outcome)
+
+saveRDS(quantile_mips_results, here(paste("data/",
+                                          outcome,
+                                          "_intxn_imp_quantile.RDS",
+                                          sep = "")))
+
+################################################################################
+################################# RISK/MODEL ###################################
+################################################################################
 
 print(risk_rescaled)
 print(sl$learner_fits[[which(sl$coefficients == 1)]])
