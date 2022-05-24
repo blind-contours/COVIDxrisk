@@ -70,7 +70,7 @@ p_val_fun <- function(x) {
 ##################### BLIP IN QUANTILES OF EACH W ##############################
 ################################################################################
 
-find_breaks <- function(i){
+find_breaks <- function(i, blip){
   result <- cut(x = i, breaks = unique(quantile(i)))
   result <-  as.data.frame(cbind(result, blip)) %>%
     group_by(result) %>%
@@ -336,7 +336,7 @@ var_imp_quantile <- function(X,
 
       quantile_boot_results_list[[boot]] <- results_list
 
-      blip_var_W <- apply(resampled_data[, -c(1:8)], 2,  FUN = find_breaks)
+      blip_var_W <- apply(resampled_data[, -c(1:8)], 2,  FUN = find_breaks, blip = blip)
 
       blip_var_x_W[[boot]] <- blip_var_W
     }
