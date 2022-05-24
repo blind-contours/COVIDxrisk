@@ -615,7 +615,7 @@ mips_imp_quantile <- function(quantile_importance,
       blip <- Q4_predictions - Q1_predictions
 
       W_quant <- cut(resampled_data[[W]],
-                     breaks = quantile(resampled_data[[W]]),
+                     breaks = unique(quantile(resampled_data[[W]])),
                      include.lowest = TRUE)
 
       blip_by_quant <- as.data.frame(cbind(blip, W_quant)) %>%
