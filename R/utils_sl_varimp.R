@@ -568,109 +568,112 @@ mips_imp_quantile <- function(quantile_importance,
 
   quantile_importance_blip_var <- quantile_importance %>%
     filter(Condition == "Blip_Intxn")
-  quantile_importance_blip_var <- quantile_importance_blip_var[quantile_importance_blip_var$Variable %notin% c("CentroidLon", "CentroidLat"), ]
 
+  quantile_importance_blip_var <- quantile_importance_blip_var[quantile_importance_blip_var$Variable %notin% c("CentroidLon", "CentroidLat"), ]
   quantile_importance_blip_var <- quantile_importance_blip_var[quantile_importance_blip_var$Est > 0 ,]
 
-  # max_quantile_importance_blip_var <- quantile_importance_blip_var[which.max(quantile_importance_blip_var$Est),]
   mips_quantile_importance_results <- furrr::future_map_dfr(1:nrow(quantile_importance_blip_var),
                                                             function(i) {
-  A <- quantile_importance_blip_var[i,]$Variable
-  W <- quantile_importance_blip_var[i,]$Intxn_Var
 
-  boot_result_list <- list()
+    A <- quantile_importance_blip_var[i,]$Variable
+    W <- quantile_importance_blip_var[i,]$Intxn_Var
 
-  for (boot in seq(num_boot)) {
+    boot_result_list <- list()
 
-      nr <- nrow(data)
+    for (boot in seq(num_boot)) {
 
-      resampled_data <- as.data.frame(data[sample(1:nr, size = nr,
-                                                  replace = TRUE), ])
+        nr <- nrow(data)
 
-      quantiles_A <- quantile(as.numeric(resampled_data[[A]]))
-      quantiles_W <- quantile(as.numeric(resampled_data[[W]]))
+        resampled_data <- as.data.frame(data[sample(1:nr, size = nr,
+                                                    replace = TRUE), ])
 
-      resampled_data_Q1 <- resampled_data_Q4 <- resampled_data
+        quantiles_A <- quantile(as.numeric(resampled_data[[A]]))
+        quantiles_W <- quantile(as.numeric(resampled_data[[W]]))
 
-      resampled_data_Q1[[A]] <- quantiles_A[2]
-      resampled_data_Q4[[A]] <- quantiles_A[4]
+        resampled_data_Q1 <- resampled_data_Q4 <- resampled_data
 
-      Q1_task <- make_sl3_Task(
-        data = resampled_data_Q1,
-        covariates = covars,
-        outcome = outcome
-      )
+        resampled_data_Q1[[A]] <- quantiles_A[2]
+        resampled_data_Q4[[A]] <- quantiles_A[4]
 
-      Q4_task <- make_sl3_Task(
-        data = resampled_data_Q4,
-        covariates = covars,
-        outcome = outcome
-      )
+        Q1_task <- make_sl3_Task(
+          data = resampled_data_Q1,
+          covariates = covars,
+          outcome = outcome
+        )
 
-      Q1_predictions <- fit$predict_fold(task = Q1_task,
-                                         fold_number = "full") * total
-      Q4_predictions <- fit$predict_fold(task = Q4_task,
-                                         fold_number = "full") * total
+        Q4_task <- make_sl3_Task(
+          data = resampled_data_Q4,
+          covariates = covars,
+          outcome = outcome
+        )
 
-      blip <- Q4_predictions - Q1_predictions
+        Q1_predictions <- fit$predict_fold(task = Q1_task,
+                                           fold_number = "full") * total
+        Q4_predictions <- fit$predict_fold(task = Q4_task,
+                                           fold_number = "full") * total
 
-      W_quant <- cut(resampled_data[[W]],
-                     breaks = as.numeric(unique(quantile(as.numeric(resampled_data[[W]])))),
-                     include.lowest = TRUE)
+        blip <- Q4_predictions - Q1_predictions
 
-      blip_by_quant <- as.data.frame(cbind(blip, W_quant)) %>%
-        group_by(W_quant) %>%
-        summarise_at(vars(blip), list(name = mean))
+        W_quant <- cut(resampled_data[[W]],
+                       breaks = as.numeric(unique(quantile(as.numeric(resampled_data[[W]])))),
+                       include.lowest = TRUE)
 
-      blip_by_quant <- t(blip_by_quant)
-      blip_by_quant <- blip_by_quant[2,]
+        blip_by_quant <- as.data.frame(cbind(blip, W_quant)) %>%
+          group_by(W_quant) %>%
+          summarise_at(vars(blip), list(name = mean))
 
-      Q4_by_quant <- as.data.frame(cbind(Q4_predictions, W_quant)) %>%
-        group_by(W_quant) %>%
-        summarise_at(vars(Q4_predictions), list(name = mean))
+        blip_by_quant <- t(blip_by_quant)
+        blip_by_quant <- blip_by_quant[2,]
 
-      Q4_by_quant <- t(Q4_by_quant)
-      Q4_by_quant <- Q4_by_quant[2,]
+        Q4_by_quant <- as.data.frame(cbind(Q4_predictions, W_quant)) %>%
+          group_by(W_quant) %>%
+          summarise_at(vars(Q4_predictions), list(name = mean))
 
-      Q1_by_quant <- as.data.frame(cbind(Q1_predictions, W_quant)) %>%
-        group_by(W_quant) %>%
-        summarise_at(vars(Q1_predictions), list(name = mean))
+        Q4_by_quant <- t(Q4_by_quant)
+        Q4_by_quant <- Q4_by_quant[2,]
 
-      Q1_by_quant <- t(Q1_by_quant)
-      Q1_by_quant <- Q1_by_quant[2,]
+        Q1_by_quant <- as.data.frame(cbind(Q1_predictions, W_quant)) %>%
+          group_by(W_quant) %>%
+          summarise_at(vars(Q1_predictions), list(name = mean))
 
-      boot_result <- as.data.frame(rbind(Q4_by_quant, Q1_by_quant, blip_by_quant))
+        Q1_by_quant <- t(Q1_by_quant)
+        Q1_by_quant <- Q1_by_quant[2,]
 
-      boot_result$Condition <- rownames(boot_result)
+        boot_result <- as.data.frame(rbind(Q4_by_quant, Q1_by_quant, blip_by_quant))
 
-      boot_result_list[[boot]] <- boot_result
+        boot_result$Condition <- rownames(boot_result)
 
-    }
+        boot_result_list[[boot]] <- boot_result
 
-  boot_df <- bind_rows(boot_result_list)
+      }
 
-  Q1_results <- subset(boot_df, Condition == "Q1_by_quant")
-  Q4_results <- subset(boot_df, Condition == "Q4_by_quant")
-  Blip_results <- subset(boot_df, Condition == "blip_by_quant")
+    boot_df <- bind_rows(boot_result_list)
 
-  Q1_quantiles <- as.data.frame(t(as.data.frame(apply(Q1_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
-  Q1_quantiles$Condition <- "Q1_preds"
-  Q1_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
+    Q1_results <- subset(boot_df, Condition == "Q1_by_quant")
+    Q4_results <- subset(boot_df, Condition == "Q4_by_quant")
+    Blip_results <- subset(boot_df, Condition == "blip_by_quant")
 
-  Q4_quantiles <- as.data.frame(t(as.data.frame(apply(Q4_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
-  Q4_quantiles$Condition <- "Q4_preds"
-  Q4_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
+    quantiles_length <- dim(Q1_results)[2]-1
+    labels <- paste("Q",1:quantiles_length, sep = "")
 
-  Blip_quantiles <- as.data.frame(t(as.data.frame(apply(Blip_results[1:4], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
-  Blip_quantiles$Condition <- "Blip_preds"
-  Blip_quantiles$EM_quantile <- c("Q1", "Q2", "Q3", "Q4")
+    Q1_quantiles <- as.data.frame(t(as.data.frame(apply(Q1_results[1:quantiles_length], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+    Q1_quantiles$Condition <- "Q1_preds"
+    Q1_quantiles$EM_quantile <- labels
 
-  result <- bind_rows(Q4_quantiles, Q1_quantiles, Blip_quantiles)
+    Q4_quantiles <- as.data.frame(t(as.data.frame(apply(Q4_results[1:quantiles_length], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+    Q4_quantiles$Condition <- "Q4_preds"
+    Q4_quantiles$EM_quantile <- labels
 
-  result$Target_var <- A
-  result$EM_var <- W
+    Blip_quantiles <- as.data.frame(t(as.data.frame(apply(Blip_results[1:quantiles_length], 2, quantile,   probs = c(0.025, 0.50, 0.975)))))
+    Blip_quantiles$Condition <- "Blip_preds"
+    Blip_quantiles$EM_quantile <- labels
 
-  rownames(result) <- NULL
+    result <- bind_rows(Q4_quantiles, Q1_quantiles, Blip_quantiles)
+
+    result$Target_var <- A
+    result$EM_var <- W
+
+    rownames(result) <- NULL
 
   return(result)
   }, .options = furrr::furrr_options(seed = TRUE))
