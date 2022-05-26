@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "Total COVID-19 Deaths To-Date"
-num_boot <- 4
+num_boot <- 10
 var_combn <- 2
 
 run_risk <- FALSE
@@ -170,9 +170,8 @@ var_imp_quantile_results <- var_imp_quantile(X = X,
                                             loss = loss_squared_error,
                                             Y = Y,
                                             num_boot = num_boot,
-                                            total,
-                                            Data_Dictionary = data_dictionary,
                                             total = total_outcome,
+                                            Data_Dictionary = data_dictionary,
                                             p_val_fun = p_val_fun
                                           )
 
