@@ -5,7 +5,7 @@
 # Partition:
 #SBATCH --partition=savio3_bigmem
 #
-#SBATCH --qos = savio_lowprio
+#SBATCH --qos=savio_lowprio
 #SBATCH --account=co_biostat
 #
 # Number of nodes for use case:
