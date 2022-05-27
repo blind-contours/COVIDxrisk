@@ -2,7 +2,7 @@ library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
 cpus <- 10
-plan(multisession, workers = cpus)
+plan(multisession, workers = cpus, gc = TRUE)
 
 set.seed(5929942)
 
@@ -80,8 +80,7 @@ load_model_time <- proc.time()
 
 load_model_time - fit_model_time
 
-
-plan(multicore, workers = cpus)
+plan(multicore, workers = cpus, gc = TRUE)
 
 ################################################################################
 ############################ VAR IMP RISK ######################################
@@ -186,6 +185,8 @@ print("Finished Quantile-Based Variable Importance")
 ################################################################################
 ############################# SUBCAT IMP QUANTILE ##############################
 ################################################################################
+
+gc()
 
 subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    data = data,

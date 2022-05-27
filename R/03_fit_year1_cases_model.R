@@ -80,8 +80,7 @@ load_model_time <- proc.time()
 
 load_model_time - fit_model_time
 
-
-plan(multicore, workers = cpus)
+plan(multicore, workers = cpus, gc = TRUE)
 
 ################################################################################
 ############################ VAR IMP RISK ######################################
@@ -187,6 +186,8 @@ print("Finished Quantile-Based Variable Importance")
 ############################# SUBCAT IMP QUANTILE ##############################
 ################################################################################
 
+gc()
+
 subcat_imp_quantile_results <- subcat_imp_quantile(subcategories,
                                                    data = data,
                                                    outcome = outcome,
@@ -211,7 +212,7 @@ saveRDS(subcat_imp_quantile_results, here(paste("data/",
 ############################### INTXN QUANTILE #################################
 ################################################################################
 
-
+gc()
 quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
                                            data = data,
                                            outcome = outcome,
