@@ -3,9 +3,9 @@
 #SBATCH --job-name=day100_deaths_COVID
 #
 # Partition:
-#SBATCH --partition=savio3
+#SBATCH --partition = savio3_bigmem
 #
-#SBATCH --qos=biostat_savio3_normal
+#SBATCH --qos = savio_lowprio
 #SBATCH --account=co_biostat
 #
 # Number of nodes for use case:
