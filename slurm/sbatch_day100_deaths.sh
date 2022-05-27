@@ -3,7 +3,7 @@
 #SBATCH --job-name=day100_deaths_COVID
 #
 # Partition:
-#SBATCH --partition = savio3_bigmem
+#SBATCH --partition=savio3_bigmem
 #
 #SBATCH --qos = savio_lowprio
 #SBATCH --account=co_biostat
