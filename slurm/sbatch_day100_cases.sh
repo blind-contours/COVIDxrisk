@@ -15,7 +15,7 @@
 #SBATCH --exclusive
 #
 # Wall clock limit ('0' for unlimited):
-#SBATCH --time=96:00:00
+#SBATCH --time=72:00:00
 #
 # Mail type:
 #SBATCH --mail-type=all
