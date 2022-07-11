@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Deaths at 1 Year"
-num_boot <- 100
+num_boot <- 10
 var_combn <- 2
 
 run_risk <- FALSE
@@ -30,7 +30,7 @@ start_time <- proc.time()
 ################################################################################
 
 
-load_data_results <- load_data(path_data = "cleaned_covid_data_final_Mar_31_22.csv",
+load_data_results <- load_data(path_data = "cleaned_covid_data_final.csv",
                                path_data_dict = "Data_Dictionary.xlsx")
 data <- load_data_results$data
 data_dictionary <- load_data_results$data_dictionary
@@ -86,82 +86,82 @@ plan(multicore, workers = cpus, gc = TRUE)
 ################################################################################
 ############################ VAR IMP RISK ######################################
 ################################################################################
+gc()
+var_imp_risk_results <- var_imp_risk(X = X,
+                                     data = data,
+                                     outcome = outcome,
+                                     covars = covars,
+                                     fit = sl,
+                                     loss = loss_squared_error,
+                                     Y = Y,
+                                     num_boot = num_boot,
+                                     Data_Dictionary = data_dictionary)
 
-# var_imp_risk_results <- var_imp_risk(X = X,
-#                                      data = data,
-#                                      outcome = outcome,
-#                                      covars = covars,
-#                                      fit = sl,
-#                                      loss = loss_squared_error,
-#                                      Y = Y,
-#                                      num_boot = num_boot,
-#                                      Data_Dictionary = data_dictionary)
-#
-# variable_imp_risk_time <- proc.time()
-#
-# var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
-#
-# saveRDS(var_imp_risk_results, here(paste("data/",
-#                                          outcome,
-#                                          "_ind_var_imp_risk.RDS",
-#                                          sep = "")))
-#
-# print("Finished Risk Variable Importance")
+variable_imp_risk_time <- proc.time()
+
+var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
+
+saveRDS(var_imp_risk_results, here(paste("data/",
+                                         outcome,
+                                         "_ind_var_imp_risk.RDS",
+                                         sep = "")))
+
+print("Finished Risk Variable Importance")
 
 
 ################################################################################
 ######################### SUBCAT IMP RISK ######################################
 ################################################################################
+gc()
+subcat_imp_risk_results <- subcat_imp_risk(
+  subcategories = subcategories,
+  data = data, outcome = outcome,
+  covars = covars,
+  fit = sl,
+  loss = loss_squared_error,
+  Y = Y,
+  num_boot = num_boot,
+  variable_list = variable_list)
 
-# subcat_imp_risk_results <- subcat_imp_risk(
-#   subcategories = subcategories,
-#   data = data, outcome = outcome,
-#   covars = covars,
-#   fit = sl,
-#   loss = loss_squared_error,
-#   Y = Y,
-#   num_boot = num_boot,
-#   variable_list = variable_list)
-#
-# subcat_imp_risk_time <- proc.time()
-#
-# saveRDS(subcat_imp_risk_results, here(paste("data/",
-#                                             outcome,
-#                                             "_subgroup_imp_risk.RDS",
-#                                             sep = "")))
+subcat_imp_risk_time <- proc.time()
+
+saveRDS(subcat_imp_risk_results, here(paste("data/",
+                                            outcome,
+                                            "_subgroup_imp_risk.RDS",
+                                            sep = "")))
 
 
 
 ################################################################################
 ################################## INTXN RISK ##################################
 ################################################################################
+gc()
+mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
+                              data = data,
+                              outcome = outcome,
+                              covars = covars,
+                              fit = sl,
+                              loss = loss_squared_error,
+                              Y= Y,
+                              num_boot = num_boot,
+                              m = var_combn,
+                              Data_Dictionary = data_dictionary,
+                              p_val_fun = p_val_fun,
+                              risk = risk)
 
-# mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
-#                               data = data,
-#                               outcome = outcome,
-#                               covars = covars,
-#                               fit = sl,
-#                               loss = loss_squared_error,
-#                               Y= Y,
-#                               num_boot = num_boot,
-#                               m = var_combn,
-#                               Data_Dictionary = data_dictionary,
-#                               p_val_fun = p_val_fun,
-#                               risk = risk)
-#
-# print("Finished MIPS")
-#
-# saveRDS(mips_results, here(paste("data/",
-#                                  outcome, "_intxn_imp_risk.RDS",
-#                                  sep = "")))
-#
-# print("Finished Risk Sub-Category Importance")
+print("Finished MIPS")
+
+saveRDS(mips_results, here(paste("data/",
+                                 outcome, "_intxn_imp_risk.RDS",
+                                 sep = "")))
+
+print("Finished Risk Sub-Category Importance")
 
 
 ################################################################################
 ############################### VAR IMP QUANTILE ###############################
 ################################################################################
-
+gc()
 var_imp_quantile_results <- var_imp_quantile(X = X,
                                              data = data,
                                              outcome = outcome,
