@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 20
+cpus <- 22
 plan(multisession, workers = cpus, gc = TRUE)
 
 set.seed(5929922)
@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Deaths at 1 Year"
-num_boot <- 5
+num_boot <- 10
 var_combn <- 2
 
 run_risk <- FALSE
