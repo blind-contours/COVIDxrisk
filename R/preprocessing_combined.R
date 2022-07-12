@@ -338,69 +338,9 @@ racial_seg_census <- read_csv(PROCESSED_DATA_PATH("racial_seg_census_api.csv")) 
 counties_add_data_political <- merge(counties_add_data_political, racial_seg_census,
                                      by.x = "FIPS", by.y = "FIPS", all.x = TRUE)
 
-##################################################################################
-####################### MOBILITY DATA PROCESSING #################################
-##################################################################################
-# summary_report_US <- read.csv(RAW_DATA_PATH("summary_report_US.txt"))
-#
-# summary_report_US$date <- as.Date(summary_report_US$date, "%Y-%m-%d")
-#
-# summary_report_US <- summary_report_US %>%
-#   mutate(month = format(date, "%m"), year = format(date, "%Y"))
-
-
-# mobility_data_long <- as.data.frame(summary_report_US)
-# mobility_data_long <- subset(mobility_data_long,
-#                              select = -c(parks, transit.stations, transit,walking))
-#
-# mobility_data_long <- mobility_data_long %>% drop_na(retail.and.recreation:driving)
-#
-# names(mobility_data_long)[4:8] <- paste0("mobility_",
-#                                          gsub("\\.","\\_",names(mobility_data_long[4:8])))
-#
-# mobility_data_long <- mobility_data_long %>%
-#   pivot_longer(cols = starts_with("mobility_"),
-#                names_to = "type",
-#                names_prefix = "mobility_",
-#                values_to = "value",
-#                values_drop_na = TRUE)
-#
-# google_mobility_coefs <- mobility_data_long %>%
-#   group_by(state, year, month, type) %>%
-#   group_modify(~broom::tidy(lm(value ~ date, ., na.action=na.exclude))) %>%
-#   filter(term == "date") %>%
-#   select(state, month, estimate)
-#
-# google_mobility_coefs <- spread(google_mobility_coefs, type, estimate)
-#
-# google_mobility_coefs$date <- as.factor(paste(google_mobility_coefs$month, google_mobility_coefs$year, sep = ""))
-#
-# google_mobility_coefs <- subset(google_mobility_coefs, select = -c(month, year))
-# google_mobility_coefs_panel <- panel_data(google_mobility_coefs, id = state, wave = date)
-#
-# google_mobility_coefs_wide <- widen_panel(google_mobility_coefs_panel, separator = "_")
-#
-# google_mobility_coefs_wide$state <- state.abb[match(google_mobility_coefs_wide$state,state.name)]
-
-# fips_state_crosswalk <- read_excel(PROCESSED_DATA_PATH("fips_state_crosswalk.xlsx"))
-#
-# counties_add_data_political_xwalk <- merge(counties_add_data_political, fips_state_crosswalk, on = "FIPS")
-#
-# covid_data_unprocessed <- merge(counties_add_data_political_xwalk,
-#                                                       google_mobility_coefs_wide, by.x = "State", by.y = "state", all.x)
-
-
-# covid_data_unprocessed <- counties_add_data_political_xwalk_google_mob
-# covid_data_unprocessed <- covid_data_unprocessed[,-1]
-
 ## remove character values that aren't needed
 covid_data_unprocessed <- counties_add_data_political %>%
   select(-c(Name, CTYNAME, NearestAirportName, NearestAirportOver5000000Name))
-
-# char_columns <- sapply(covid_data_unprocessed, is.character)
-# covid_data_unprocessed[char_columns] <- lapply(covid_data_unprocessed[char_columns], as.numeric)
-
-## these variables still need standardization by population:
 
 
 ################ Air pollution Data ##################
@@ -414,10 +354,6 @@ means.cross.year <- LUR.air.pollution.data %>%
 
 LUR.air.pull.wide <- means.cross.year %>%
   pivot_wider(names_from = pollutant, values_from = mean_size)
-
-
-################ Mask Use Variable ##################
-# mask.use.data <- read.csv(RAW_DATA_PATH('mask-use-by-county.csv'))
 
 
 ################ Lead Exposure Variable ##################
@@ -594,28 +530,8 @@ covid_data_unprocessed <- subset(covid_data_unprocessed, select=-c(state_code, n
 
 
 ################ CLEANING ##################
-
-std_variables <- c("Premature.death.raw.value",
-                   "HIV.prevalence.raw.value",
-                   "Sexually.transmitted.infections.raw.value",
-                   "Preventable.hospital.stays.raw.value")
-
-covid_data_unprocessed[std_variables] = covid_data_unprocessed[std_variables]/covid_data_unprocessed$Population
-
-
-# Remove variables that have 12 states of fully missing data
-check_prop <- covid_data_unprocessed %>%
-  group_by(State_name) %>%
-  select(everything()) %>%
-  summarise_all(funs(sum(is.na(.))/n())) <= 0.50
-
-state_na <- colSums(check_prop)
-state_na_thresh <- state_na > 38
-filter_true <- which(state_na_thresh)
-covid_data_processed <- covid_data_unprocessed[, filter_true ]
-
 ## remove outcomes
-covid_data_processed_features <- covid_data_processed %>%
+covid_data_processed_features <- covid_data_unprocessed %>%
   select(-non_features)
 
 outcome_data <- covid_data_unprocessed %>%
@@ -624,11 +540,39 @@ outcome_data <- covid_data_unprocessed %>%
 covid_data_processed_features[] <- lapply(covid_data_processed_features,
                                           function(x) as.numeric(as.character(x)))
 
-data <- cbind.data.frame(covid_data_processed$State_name,
-                         covid_data_processed_features)
-colnames(data)[1] <- "State"
 
-covid_data_processed_na_impute <- data %>%
+colMax <- function(X) apply(X, 2, max, na.rm = TRUE)
+
+colnames <- colnames(covid_data_processed_features)
+std_variables <- colnames[grepl("raw.value" , colnames) ]
+std_data <- covid_data_processed_features[std_variables]
+std_vars <- colnames(std_data)[as.numeric(colMax(std_data)) > 1]
+std_vars <- std_vars[std_vars %notin% c("Population.raw.value",
+                            "Life.expectancy.raw.value",
+                            "Math.scores.raw.value",
+                            "Reading.scores.raw.value") ]
+
+covid_data_processed_features[std_vars] = covid_data_processed_features[std_vars]/covid_data_processed_features$Population
+
+covid_data_standardized <- cbind.data.frame(covid_data_unprocessed$State_name,
+                         covid_data_processed_features)
+
+colnames(covid_data_standardized)[1] <- "State"
+
+# Remove variables that have 12 states of fully missing data
+check_prop <- covid_data_standardized %>%
+  group_by(State) %>%
+  select(everything()) %>%
+  summarise_all(funs(sum(is.na(.))/n())) <= 0.75
+
+state_na <- colSums(check_prop)
+state_na[1] <- 49
+state_na_thresh <- state_na > 38
+filter_true <- which(state_na_thresh)
+
+covid_data_processed <- covid_data_standardized[, filter_true ]
+
+covid_data_processed_na_impute <- covid_data_processed %>%
   group_by(State) %>%
   mutate_if(is.numeric, ~replace_na(., mean(., na.rm = TRUE))) %>%
   ungroup()
