@@ -602,13 +602,15 @@ std_variables <- c("Premature.death.raw.value",
 
 covid_data_unprocessed[std_variables] = covid_data_unprocessed[std_variables]/covid_data_unprocessed$Population
 
+
+# Remove variables that have 12 states of fully missing data
 check_prop <- covid_data_unprocessed %>%
   group_by(State_name) %>%
-  select(everything()) %>%  # replace to your needs
-  summarise_all(funs(sum(is.na(.))/n())) == 1.0000
+  select(everything()) %>%
+  summarise_all(funs(sum(is.na(.))/n())) <= 0.50
 
 state_na <- colSums(check_prop)
-state_na_thresh <- state_na <= 12
+state_na_thresh <- state_na > 38
 filter_true <- which(state_na_thresh)
 covid_data_processed <- covid_data_unprocessed[, filter_true ]
 
