@@ -34,7 +34,8 @@ create_superlearner <- function(){
 
   grid_params <- list(max_depth = c(2, 4, 6, 8, 10, 12),
                       eta = c(0.001, 0.01, 0.1, 0.2, 0.3),
-                      nrounds = c(20, 50))
+                      nrounds = c(20, 50, 100, 200))
+
   grid <- expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
   # params_default <- list(nthread = getOption("sl.cores.learners", 1))
   xgb_learners <- apply(grid, MARGIN = 1, function(params_tune) {
@@ -79,6 +80,12 @@ create_superlearner <- function(){
     lrnr_ranger10,
     xgb_learners[[50]],
     xgb_learners[[60]],
+    xgb_learners[[61]],
+    xgb_learners[[70]],
+    xgb_learners[[80]],
+    xgb_learners[[90]],
+    xgb_learners[[100]],
+    xgb_learners[[110]],
     full_lrn_earth_1,
     full_lrn_earth_2,
     full_lrn_earth_3,
