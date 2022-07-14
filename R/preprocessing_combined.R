@@ -171,6 +171,7 @@ SVI_fips <- county_SVI$FIPS
 # exclude locations
 county_SVI <- county_SVI[8:dim(county_SVI)[2]]
 
+county_SVI <- county_SVI[, !grepl("M_|MP_",colnames(county_SVI))]
 # get all the variables except the one containing theme
 counties <- cbind(counties, county_SVI[match(FIPS, SVI_fips),
                                        !grepl("theme" , names(county_SVI))])
@@ -406,6 +407,8 @@ pesticide_avgs_by_year <- pesticide_data %>%
 pesticide_avgs_by_year <- pesticide_avgs_by_year %>%
   pivot_wider(names_from = COMPOUND, values_from = mean_kg)
 
+pesticides <- colnames(pesticide_avgs_by_year)
+pesticides <- pesticides[pesticides!="fips"]
 
 ################ CHEMICAL EXPOSURE VARIABLES ##################
 arsenic_violations <- read.csv(RAW_DATA_PATH('SDWIS_As_Violations_County_2006-2017_FINAL.csv'), sep = ",")
@@ -567,7 +570,7 @@ check_prop <- covid_data_standardized %>%
 
 state_na <- colSums(check_prop)
 state_na[1] <- 49
-state_na_thresh <- state_na > 38
+state_na_thresh <- state_na >= 38
 filter_true <- which(state_na_thresh)
 
 covid_data_processed <- covid_data_standardized[, filter_true ]
@@ -581,7 +584,6 @@ covid_data_processed_na_features <- covid_data_processed_na_impute %>%
   select(-c("State"))
 
 covid_data_processed <- covid_data_processed_na_features[!is.na(covid_data_processed_na_features$BWI),]
-covid_data_processed <- covid_data_processed[, which(colMeans(!is.na(covid_data_processed)) > NA_THRESH)]
 
 population <- covid_data_processed$Population
 outcome_data <- outcome_data[!is.na(covid_data_processed_na_features$BWI),]
@@ -628,9 +630,13 @@ covid_data_processed_corr_rem <- covid_data_processed[,!apply(descrCor,
 
 final_covid_processed <- cbind.data.frame(outcome_data,
                                covid_data_processed_corr_rem,
-                               covid_data_processed$Population)
+                               covid_data_processed$Population,
+                               covid_data_processed$fips)
 
-colnames(final_covid_processed)[dim(final_covid_processed)[2]] <- "Population"
+colnames(final_covid_processed)[dim(final_covid_processed)[2]] <- "fips"
+colnames(final_covid_processed)[dim(final_covid_processed)[2]-1] <- "Population"
+
+final_covid_processed <- final_covid_processed[,colnames(final_covid_processed)!= "State_FIPS"]
 ## Column bind the outcome data and write the final dataset
 write.csv(final_covid_processed, file = PROCESSED_DATA_PATH("cleaned_covid_data_final.csv"))
 
