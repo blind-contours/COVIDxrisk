@@ -1,2 +1,0 @@
-/var/spool/slurmd/job11685162/slurm_script: line 22: cd: /global/home/users/david_mccoy/global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk: No such file or directory
-/global/software/sl-7.x86_64/modules/langs/r/4.0.3/lib64/R/bin/BATCH: line 60: logs/total_cases_modeling.Rout: No such file or directory

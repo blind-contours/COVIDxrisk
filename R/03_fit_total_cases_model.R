@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 22
+cpus <- 25
 plan(multisession, workers = cpus, gc = TRUE)
 
 set.seed(5929942)
@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "Total COVID-19 Cases To-Date"
-num_boot <- 10
+num_boot <- 100
 var_combn <- 2
 
 start_time <- proc.time()
@@ -83,79 +83,79 @@ plan(multicore, workers = cpus, gc = TRUE)
 ################################################################################
 ############################ VAR IMP RISK ######################################
 ################################################################################
-# gc()
-#
-# var_imp_risk_results <- var_imp_risk(X = X,
-#                                      data = data,
-#                                      outcome = outcome,
-#                                      covars = covars,
-#                                      fit = sl,
-#                                      loss = loss_squared_error,
-#                                      Y = Y,
-#                                      num_boot = num_boot,
-#                                      Data_Dictionary = data_dictionary)
-#
-# variable_imp_risk_time <- proc.time()
-#
-# var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
-#
-# saveRDS(var_imp_risk_results, here(paste("data/",
-#                                          outcome,
-#                                          "_ind_var_imp_risk.RDS",
-#                                          sep = "")))
-#
-# print("Finished Risk Variable Importance")
+gc()
+
+var_imp_risk_results <- var_imp_risk(X = X,
+                                     data = data,
+                                     outcome = outcome,
+                                     covars = covars,
+                                     fit = sl,
+                                     loss = loss_squared_error,
+                                     Y = Y,
+                                     num_boot = num_boot,
+                                     Data_Dictionary = data_dictionary)
+
+variable_imp_risk_time <- proc.time()
+
+var_imp_risk_results$Label <- data_dictionary$`Nice Label`[match(var_imp_risk_results$Variable, data_dictionary$`Variable Name`)]
+
+saveRDS(var_imp_risk_results, here(paste("data/",
+                                         outcome,
+                                         "_ind_var_imp_risk.RDS",
+                                         sep = "")))
+
+print("Finished Risk Variable Importance")
 
 
 ################################################################################
 ######################### SUBCAT IMP RISK ######################################
 ################################################################################
-# gc()
-#
-# subcat_imp_risk_results <- subcat_imp_risk(
-#   subcategories = subcategories,
-#   data = data, outcome = outcome,
-#   covars = covars,
-#   fit = sl,
-#   loss = loss_squared_error,
-#   Y = Y,
-#   num_boot = num_boot,
-#   variable_list = variable_list)
-#
-# subcat_imp_risk_time <- proc.time()
-#
-# saveRDS(subcat_imp_risk_results, here(paste("data/",
-#                                             outcome,
-#                                             "_subgroup_imp_risk.RDS",
-#                                             sep = "")))
-#
-#
-#
+gc()
+
+subcat_imp_risk_results <- subcat_imp_risk(
+  subcategories = subcategories,
+  data = data, outcome = outcome,
+  covars = covars,
+  fit = sl,
+  loss = loss_squared_error,
+  Y = Y,
+  num_boot = num_boot,
+  variable_list = variable_list)
+
+subcat_imp_risk_time <- proc.time()
+
+saveRDS(subcat_imp_risk_results, here(paste("data/",
+                                            outcome,
+                                            "_subgroup_imp_risk.RDS",
+                                            sep = "")))
+
+
+
 # ################################################################################
 # ################################## INTXN RISK ##################################
 # ################################################################################
-# gc()
-#
-# mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
-#                               data = data,
-#                               outcome = outcome,
-#                               covars = covars,
-#                               fit = sl,
-#                               loss = loss_squared_error,
-#                               Y= Y,
-#                               num_boot = num_boot,
-#                               m = var_combn,
-#                               Data_Dictionary = data_dictionary,
-#                               p_val_fun = p_val_fun,
-#                               risk = risk)
-#
-# print("Finished MIPS")
-#
-# saveRDS(mips_results, here(paste("data/",
-#                                  outcome, "_intxn_imp_risk.RDS",
-#                                  sep = "")))
-#
-# print("Finished Risk Sub-Category Importance")
+gc()
+
+mips_results <- mips_imp_risk(risk_importance = var_imp_risk_results,
+                              data = data,
+                              outcome = outcome,
+                              covars = covars,
+                              fit = sl,
+                              loss = loss_squared_error,
+                              Y= Y,
+                              num_boot = num_boot,
+                              m = var_combn,
+                              Data_Dictionary = data_dictionary,
+                              p_val_fun = p_val_fun,
+                              risk = risk)
+
+print("Finished MIPS")
+
+saveRDS(mips_results, here(paste("data/",
+                                 outcome, "_intxn_imp_risk.RDS",
+                                 sep = "")))
+
+print("Finished Risk Sub-Category Importance")
 
 
 ################################################################################

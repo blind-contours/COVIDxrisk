@@ -11,11 +11,11 @@
 # Number of nodes for use case:
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=25
+#SBATCH --cpus-per-task=30
 #SBATCH --exclusive
 #
 # Wall clock limit ('0' for unlimited):
-#SBATCH --time=72:00:00
+#SBATCH --time=0
 #
 # Mail type:
 #SBATCH --mail-type=all

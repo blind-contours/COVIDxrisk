@@ -2,11 +2,6 @@ library(here)
 create_superlearner <- function(){
 
   ## source the custom learners built for poisson outcomes
-  sapply(list.files(path = here("R/poisson_learners"),
-                    full.names = TRUE),
-         source)
-  ## set up the custom learners and some standard ones as well
-  ## set up baseline mean to make sure our other learners are working better than mean
   mean_lrnr <- Lrnr_mean$new()
 
   lrnr_ranger100 <- make_learner(Lrnr_ranger, num.trees = 100)
@@ -34,7 +29,7 @@ create_superlearner <- function(){
 
   grid_params <- list(max_depth = c(2, 4, 6, 8, 10, 12),
                       eta = c(0.001, 0.01, 0.1, 0.2, 0.3),
-                      nrounds = c(20, 50, 100, 200))
+                      nrounds = c(20, 50, 100, 200,400))
 
   grid <- expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
   # params_default <- list(nthread = getOption("sl.cores.learners", 1))
