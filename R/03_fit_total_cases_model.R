@@ -1,7 +1,7 @@
 library(here)
 source(here("R/utils_sl_varimp.R"))
 source(here("R/util.R"))
-cpus <- 8
+cpus <- 20
 plan(multisession, workers = cpus, gc = TRUE)
 
 set.seed(5929942)
@@ -223,27 +223,27 @@ saveRDS(subcat_imp_quantile_results, here(paste("data/",
 ################################################################################
 
 
-quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
-                                           data = validation_data,
-                                           outcome = outcome,
-                                           covars = covars,
-                                           fit = best_learner,
-                                           loss = loss_squared_error,
-                                           Y = Y,
-                                           num_boot = num_boot,
-                                           m = var_combn,
-                                           Data_Dictionary = data_dictionary,
-                                           p_val_fun = p_val_fun,
-                                           total = total_outcome)
-
-saveRDS(quantile_mips_results, here(paste("data/",
-                                          outcome,
-                                          "_intxn_imp_quantile.RDS",
-                                          sep = "")))
-
-################################################################################
-################################# RISK/MODEL ###################################
-################################################################################
-
-print(risk_rescaled)
-print(sl$learner_fits[[which(sl$coefficients == 1)]])
+# quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
+#                                            data = validation_data,
+#                                            outcome = outcome,
+#                                            covars = covars,
+#                                            fit = best_learner,
+#                                            loss = loss_squared_error,
+#                                            Y = Y,
+#                                            num_boot = num_boot,
+#                                            m = var_combn,
+#                                            Data_Dictionary = data_dictionary,
+#                                            p_val_fun = p_val_fun,
+#                                            total = total_outcome)
+#
+# saveRDS(quantile_mips_results, here(paste("data/",
+#                                           outcome,
+#                                           "_intxn_imp_quantile.RDS",
+#                                           sep = "")))
+#
+# ################################################################################
+# ################################# RISK/MODEL ###################################
+# ################################################################################
+#
+# print(risk_rescaled)
+# print(sl$learner_fits[[which(sl$coefficients == 1)]])
