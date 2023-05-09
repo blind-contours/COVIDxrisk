@@ -267,8 +267,8 @@ US_county_ATE_plot <- function(outcome,
 
   total <- sum(data[[outcome]])
 
-  Q1_predictions <- sl$predict_fold(task = Q1_task, fold_number = "full") * total
-  Q4_predictions <- sl$predict_fold(task = Q4_task, fold_number = "full") * total
+  Q1_predictions <- sl$predict_fold(task = Q1_task, fold_number = "full") * data$Population#* total
+  Q4_predictions <- sl$predict_fold(task = Q4_task, fold_number = "full") * data$Population #* total
 
   blip <- Q4_predictions - Q1_predictions
 

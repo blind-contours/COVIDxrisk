@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "Total COVID-19 Cases To-Date"
-num_boot <- 50
+num_boot <- 100
 var_combn <- 2
 
 start_time <- proc.time()
@@ -223,23 +223,23 @@ saveRDS(subcat_imp_quantile_results, here(paste("data/",
 ################################################################################
 
 
-# quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
-#                                            data = validation_data,
-#                                            outcome = outcome,
-#                                            covars = covars,
-#                                            fit = best_learner,
-#                                            loss = loss_squared_error,
-#                                            Y = Y,
-#                                            num_boot = num_boot,
-#                                            m = var_combn,
-#                                            Data_Dictionary = data_dictionary,
-#                                            p_val_fun = p_val_fun,
-#                                            total = total_outcome)
-#
-# saveRDS(quantile_mips_results, here(paste("data/",
-#                                           outcome,
-#                                           "_intxn_imp_quantile.RDS",
-#                                           sep = "")))
+quantile_mips_results <- mips_imp_quantile(quantile_importance = var_imp_quantile_results,
+                                           data = validation_data,
+                                           outcome = outcome,
+                                           covars = covars,
+                                           fit = best_learner,
+                                           loss = loss_squared_error,
+                                           Y = Y,
+                                           num_boot = num_boot,
+                                           m = var_combn,
+                                           Data_Dictionary = data_dictionary,
+                                           p_val_fun = p_val_fun,
+                                           total = total_outcome)
+
+saveRDS(quantile_mips_results, here(paste("data/",
+                                          outcome,
+                                          "_intxn_imp_quantile.RDS",
+                                          sep = "")))
 #
 # ################################################################################
 # ################################# RISK/MODEL ###################################

@@ -650,6 +650,12 @@ mips_imp_quantile <- function(quantile_importance,
         resampled_data_Q1[[A]] <- quantiles_A[2]
         resampled_data_Q4[[A]] <- quantiles_A[4]
 
+        task <- make_sl3_Task(
+          data = resampled_data,
+          covariates = covars,
+          outcome = outcome
+        )
+
         Q1_task <- make_sl3_Task(
           data = resampled_data_Q1,
           covariates = covars,
@@ -662,10 +668,10 @@ mips_imp_quantile <- function(quantile_importance,
           outcome = outcome
         )
 
-        Q1_predictions <- fit$predict_fold(task = Q1_task,
-                                           fold_number = "full") * total
-        Q4_predictions <- fit$predict_fold(task = Q4_task,
-                                           fold_number = "full") * total
+        new_fit <- fit$retrain(task)
+
+        Q1_predictions <- new_fit$predict_fold(task = Q1_task) * resampled_data_Q1$Population
+        Q4_predictions <- new_fit$predict_fold(task = Q4_task) * resampled_data_Q4$Population
 
         blip <- Q4_predictions - Q1_predictions
 
