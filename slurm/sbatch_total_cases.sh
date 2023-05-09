@@ -28,4 +28,4 @@ cd /global/scratch/users/david_mccoy/COVIDxrisk/COVIDxrisk
 
 R CMD BATCH --no-save \
   R/03_fit_total_cases_model.R \
-  logs/total_cases_modeling.Rout
+  logs/total_cases_modeling_multicore.Rout

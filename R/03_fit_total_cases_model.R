@@ -89,7 +89,7 @@ load_model_time <- proc.time()
 
 load_model_time - fit_model_time
 
-# plan(multicore, workers = cpus, gc = TRUE)
+plan(multicore, workers = cpus, gc = TRUE)
 
 ################################################################################
 ############################ VAR IMP RISK ######################################
