@@ -330,6 +330,8 @@ var_imp_quantile <- function(X,
     quantile_boot_results_list <- list()
     blip_var_x_W <- list()
 
+    future::plan(future::sequential, gc = TRUE)
+
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
 
