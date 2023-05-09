@@ -330,7 +330,7 @@ var_imp_quantile <- function(X,
     quantile_boot_results_list <- list()
     blip_var_x_W <- list()
 
-    # future::plan(future::sequential, gc = TRUE)
+    future::plan(future::sequential, gc = TRUE)
 
     for (boot in seq(num_boot)) {
       nr <- nrow(data)
@@ -449,6 +449,8 @@ subcat_imp_quantile <- function(subcategories,
   subgroup_quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_subcat_boot_results_list <- list()
     for (boot in seq(num_boot)) {
+
+      future::plan(future::sequential, gc = TRUE)
       nr <- nrow(data)
 
       resampled_data <- as.data.frame(data[sample(1:nr,

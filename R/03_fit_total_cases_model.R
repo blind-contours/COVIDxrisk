@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "Total COVID-19 Cases To-Date"
-num_boot <- 40
+num_boot <- 50
 var_combn <- 2
 
 start_time <- proc.time()
@@ -89,7 +89,7 @@ load_model_time <- proc.time()
 
 load_model_time - fit_model_time
 
-plan(multicore, workers = cpus, gc = TRUE)
+# plan(multicore, workers = cpus, gc = TRUE)
 
 ################################################################################
 ############################ VAR IMP RISK ######################################
