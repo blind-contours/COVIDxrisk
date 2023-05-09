@@ -239,12 +239,12 @@ US_county_ATE_plot <- function(outcome,
   ))]
 
 
-  task <- make_sl3_Task(
-    data = data,
-    covariates = covars,
-    outcome = outcome,
-    folds = origami::make_folds(data, fold_fun = folds_vfold, V = 10)
-  )
+  # task <- make_sl3_Task(
+  #   data = data,
+  #   covariates = covars,
+  #   outcome = outcome,
+  #   folds = origami::make_folds(data, fold_fun = folds_vfold, V = 10)
+  # )
 
   quantiles <- quantile(data[[target_var]])
 
@@ -278,6 +278,7 @@ US_county_ATE_plot <- function(outcome,
   )
 
   us_counties_select_plot <- plot_usmap(data = df, include = c(states)) + scale_fill_continuous(type = "viridis")
+  us_counties_select_plot <- plot_usmap(data = df, include = c("MD")) + scale_fill_continuous(type = "viridis")
   us_counties_all_plot <- plot_usmap(data = df) + scale_fill_continuous(type = "viridis")
 
   ggsave(here(paste("Figures/", "ATE_region_", outcome,"_", target_var, ".png", sep = "")), us_counties_select_plot, width = 10, height = 6)

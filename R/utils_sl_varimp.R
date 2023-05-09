@@ -4,7 +4,9 @@
 
 create_sl <- function(data = covid_data_processed,
                       outcome = outcome,
-                      all_outcomes = all_outcomes) {
+                      all_outcomes = all_outcomes,
+                      quantile_threshold = quantile_threshold) {
+
   covars <- colnames(data)[-which(names(data) %in% c(
     all_outcomes,
     "fips",
@@ -22,8 +24,42 @@ create_sl <- function(data = covid_data_processed,
   discrete_sl <- discrete_sl$value()
   ## fit the sl3 object
   sl_fit <- discrete_sl$train(task)
+  selected_learner <- sl_fit$learner_fits[[which(sl_fit$coefficients == 1)]]
 
-  return(list("sl_fit" = sl_fit, "covars" = covars))
+  ate_results_list <- list()
+  for (var in covars) {
+
+    quantiles <- quantile(data[[var]])
+    resampled_data_Q1 <- resampled_data_Q4 <- data
+
+    resampled_data_Q1[[var]] <- quantiles[2]
+    resampled_data_Q4[[var]] <- quantiles[4]
+
+    Q1_task <- make_sl3_Task(
+      data = resampled_data_Q1,
+      covariates = covars,
+      outcome = outcome
+    )
+
+    Q4_task <- make_sl3_Task(
+      data = resampled_data_Q4,
+      covariates = covars,
+      outcome = outcome
+    )
+
+    Q1_predictions <- selected_learner$predict(task = Q1_task) * resampled_data_Q1$Population
+    Q4_predictions <- selected_learner$predict(task = Q4_task) * resampled_data_Q4$Population
+
+    blip <- Q4_predictions - Q1_predictions
+    ATE <- mean(blip)
+    ate_results_list[[var]] <- ATE
+  }
+
+  ate_df <- t(as.data.frame(ate_results_list))
+  threshold <- quantile(abs(ate_df), quantile_threshold)
+  selected_rows <- ate_df[abs(ate_df) > threshold, ]
+
+  return(list("sl_fit" = sl_fit, "covars" = covars, "best_learner" = selected_learner, "top_vars" = names(selected_rows)))
 }
 
 ################################################################################
@@ -306,6 +342,14 @@ var_imp_quantile <- function(X,
       resampled_data_Q1[[i]] <- quantiles[2]
       resampled_data_Q4[[i]] <- quantiles[4]
 
+      task <- make_sl3_Task(
+        data = resampled_data,
+        covariates = covars,
+        outcome = outcome
+      )
+
+      new_fit <- fit$retrain(task)
+
       Q1_task <- make_sl3_Task(
         data = resampled_data_Q1,
         covariates = covars,
@@ -318,8 +362,8 @@ var_imp_quantile <- function(X,
         outcome = outcome
       )
 
-      Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * total
-      Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * total
+      Q1_predictions <- fit$predict_fold(task = Q1_task, fold_number = "full") * resampled_data_Q1$Population
+      Q4_predictions <- fit$predict_fold(task = Q4_task, fold_number = "full") * resampled_data_Q4$Population
 
       blip <- Q4_predictions - Q1_predictions
       ATE <- mean(blip)
@@ -425,6 +469,12 @@ subcat_imp_quantile <- function(subcategories,
                                                nontarget_q = NULL,
                                                subcategory_flag = TRUE)
 
+      task <- make_sl3_Task(
+        data = resampled_data,
+        covariates = covars,
+        outcome = outcome
+      )
+
       task_sub_cat_75_nontarget_obs <- make_sl3_Task(
         data = subcat_75_nontarget_obs,
         covariates = covars,
@@ -437,11 +487,11 @@ subcat_imp_quantile <- function(subcategories,
         outcome = outcome
       )
 
-      subcat_75_obs_predictions <- fit$predict_fold(task = task_sub_cat_75_nontarget_obs,
-                                                    fold_number = "full")
+      new_fit <- fit$retrain(task)
 
-      subcat_25_obs_predictions <- fit$predict_fold(task = task_sub_cat_25_nontarget_obs,
-                                                    fold_number = "full")
+      subcat_75_obs_predictions <- new_fit$predict_fold(task = task_sub_cat_75_nontarget_obs) * subcat_75_nontarget_obs$Population
+
+      subcat_25_obs_predictions <- new_fit$predict_fold(task = task_sub_cat_25_nontarget_obs) *  subcat_25_nontarget_obs$Population
 
       varimp_metric <- mean(subcat_75_obs_predictions - subcat_25_obs_predictions)
 
@@ -452,7 +502,8 @@ subcat_imp_quantile <- function(subcategories,
                           probs <- c(0.025, 0.50, 0.975))
     p_val <- p_val_fun(quantiles)
 
-    results_list <- list("Variable" = i, "Lower_CI" = quantiles[[1]],
+    results_list <- list("Variable" = i,
+                         "Lower_CI" = quantiles[[1]],
                          "Est" = quantiles[[2]],
                          "Upper_CI" = quantiles[[3]],
                          "P_Value" = p_val)
@@ -460,7 +511,7 @@ subcat_imp_quantile <- function(subcategories,
     return(results_list)
   }, .options = furrr::furrr_options(seed = TRUE))
 
-  subgroup_quantile_importance[, c(2:4)] <- as.data.frame(sapply(subgroup_quantile_importance[, c(2:4)], as.numeric) * total)
+  # subgroup_quantile_importance[, c(2:4)] <- as.data.frame(sapply(subgroup_quantile_importance[, c(2:4)], as.numeric) * total)
 
   return(subgroup_quantile_importance)
 }
