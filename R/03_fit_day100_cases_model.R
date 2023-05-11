@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "COVID-19 Cases at 100 Days"
-num_boot <- 100
+num_boot <- 200
 var_combn <- 2
 
 start_time <- proc.time()
@@ -33,6 +33,7 @@ load_data_results <- load_data(path_data = "cleaned_covid_data_final.csv",
 data <- load_data_results$data
 data_dictionary <- load_data_results$data_dictionary
 train_prop <- 0.5
+quantile_threshold <- 0.75
 
 train_size <- round(nrow(data) * train_prop)
 
@@ -48,7 +49,7 @@ validation_data <- data[-train_indices, ]
 ################################################################################
 
 # fit the SL model
-sl_fit <- create_sl(data = train_data, outcome = outcome, all_outcomes = all_outcomes, quantile_threshold = 0.9)
+sl_fit <- create_sl(data = train_data, outcome = outcome, all_outcomes = all_outcomes, quantile_threshold = quantile_threshold)
 sl <- sl_fit$sl_fit
 covars <- sl_fit$covars
 best_learner <- sl_fit$best_learner

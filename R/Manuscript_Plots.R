@@ -222,6 +222,7 @@ US_county_ATE_plot <- function(outcome,
   data <- data[, -1]
 
   sl <- readRDS(path_model)
+  # model <- sl$fit
 
   all_outcomes <- c(
     "CountyRelativeDay100Cases",
@@ -278,7 +279,7 @@ US_county_ATE_plot <- function(outcome,
   )
 
   us_counties_select_plot <- plot_usmap(data = df, include = c(states)) + scale_fill_continuous(type = "viridis")
-  us_counties_select_plot <- plot_usmap(data = df, include = c("MD")) + scale_fill_continuous(type = "viridis")
+  us_counties_select_plot <- plot_usmap(data = df, include = c("FL")) + scale_fill_continuous(type = "viridis")
   us_counties_all_plot <- plot_usmap(data = df) + scale_fill_continuous(type = "viridis")
 
   ggsave(here(paste("Figures/", "ATE_region_", outcome,"_", target_var, ".png", sep = "")), us_counties_select_plot, width = 10, height = 6)
@@ -301,8 +302,8 @@ US_county_ATE_plot(outcome = "TotalCasesUpToDate",
                               "TX", "PA"))
 
 US_county_ATE_plot(outcome = "TotalCasesUpToDate",
-                   target_var = "2,4-D",
-                   path_model <- "~/COVIDxrisk/Models/Models/TotalCasesUpToDate.RDS",
+                   target_var = "Juvenile.arrests.raw.value",
+                   path_model <- "~/COVIDxrisk/Models/TotalCasesUpToDate.RDS",
                    states = c("DC", "DE", "FL", "GA", "MD", "NC", "SC", "VA",
                               "WV", "AL", "KY", "MS", "TN", "AR", "LA", "OK",
                               "TX", "PA"))
@@ -310,8 +311,8 @@ US_county_ATE_plot(outcome = "TotalCasesUpToDate",
 
 # Total Deaths -------------------------
 US_county_ATE_plot(outcome = "TotalDeathsUpToDate",
-                   target_var = "Life.expectancy.raw.value",
-                   path_model <- "~/COVIDxrisk/Models/Models/TotalDeathsUpToDate.RDS",
+                   target_var = "Residential.segregation...Black.White.raw.value",
+                   path_model <- "~/COVIDxrisk/Models/TotalDeathsUpToDate.RDS",
                    states = c("DC", "DE", "FL", "GA", "MD", "NC", "SC", "VA",
                               "WV", "AL", "KY", "MS", "TN", "AR", "LA", "OK",
                               "TX", "PA"))

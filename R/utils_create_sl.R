@@ -25,11 +25,13 @@ create_superlearner <- function(){
   lrnr_ranger300 <- make_learner(Lrnr_ranger, num.trees = 300)
   lrnr_ranger400 <- make_learner(Lrnr_ranger, num.trees = 400)
   lrnr_ranger500 <- make_learner(Lrnr_ranger, num.trees = 500)
-
+  lrnr_ranger1000 <- make_learner(Lrnr_ranger, num.trees = 1000)
+  lrnr_ranger2000 <- make_learner(Lrnr_ranger, num.trees = 2000)
+  lrnr_ranger5000 <- make_learner(Lrnr_ranger, num.trees = 5000)
 
   grid_params <- list(max_depth = c(2, 4, 6, 8, 10, 12),
                       eta = c(0.001, 0.01, 0.1, 0.2, 0.3),
-                      nrounds = c(20, 50, 100, 200,400))
+                      nrounds = c(20, 50, 100, 200, 400, 600, 1000, 2000, 4000, 5000))
 
   grid <- expand.grid(grid_params, KEEP.OUT.ATTRS = FALSE)
   # params_default <- list(nthread = getOption("sl.cores.learners", 1))
@@ -57,6 +59,9 @@ create_superlearner <- function(){
     lrnr_ranger300,
     lrnr_ranger400,
     lrnr_ranger500,
+    lrnr_ranger1000,
+    lrnr_ranger2000,
+    lrnr_ranger5000,
     lrnr_lasso,
     lrnr_ridge,
     lrnr_elasticnet,
@@ -89,6 +94,23 @@ create_superlearner <- function(){
     xgb_learners[[135]],
     xgb_learners[[140]],
     xgb_learners[[150]],
+    xgb_learners[[155]],
+    xgb_learners[[160]],
+    xgb_learners[[170]],
+    xgb_learners[[180]],
+    xgb_learners[[190]],
+    xgb_learners[[200]],
+    xgb_learners[[205]],
+    xgb_learners[[210]],
+    xgb_learners[[220]],
+    xgb_learners[[230]],
+    xgb_learners[[240]],
+    xgb_learners[[250]],
+    xgb_learners[[260]],
+    xgb_learners[[270]],
+    xgb_learners[[280]],
+    xgb_learners[[290]],
+    xgb_learners[[300]],
     full_lrn_earth_1,
     full_lrn_earth_2,
     full_lrn_earth_3,
