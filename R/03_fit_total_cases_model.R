@@ -4,7 +4,7 @@ source(here("R/util.R"))
 cpus <- 20
 plan(multisession, workers = cpus, gc = TRUE)
 
-set.seed(5929942)
+set.seed(59293322)
 
 # set the fit_sl_varimp args
 outcome <- "TotalCasesUpToDate"
@@ -18,7 +18,7 @@ all_outcomes <- c(
   "Casesat1year"
 )
 label <- "Total COVID-19 Cases To-Date"
-num_boot <- 200
+num_boot <- 100
 var_combn <- 2
 
 start_time <- proc.time()
@@ -33,7 +33,7 @@ load_data_results <- load_data(path_data = "cleaned_covid_data_final.csv",
 data <- load_data_results$data
 data_dictionary <- load_data_results$data_dictionary
 train_prop <- 0.5
-quantile_threshold <- 0.75
+quantile_threshold <- 0.80
 
 train_size <- round(nrow(data) * train_prop)
 
