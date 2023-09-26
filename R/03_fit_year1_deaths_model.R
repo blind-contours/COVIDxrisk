@@ -35,9 +35,6 @@ all_outcomes <- c(
   "Casesat1year"
 )
 
-outcome <- "Deathsat1year"
-
-
 # Cross-Validation Loop
 for (fold in 1:n_folds) {
   cat("Starting fold", fold, "\n")
