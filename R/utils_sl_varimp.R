@@ -10,7 +10,8 @@ create_sl <- function(data = covid_data_processed,
   covars <- colnames(data)[-which(names(data) %in% c(
     all_outcomes,
     "fips",
-    "county_names"
+    "county_names",
+    "fold"
   ))]
 
   task <- make_sl3_Task(
@@ -326,6 +327,15 @@ var_imp_quantile <- function(X,
                              Data_Dictionary,
                              p_val_fun) {
 
+  cols_to_remove <- c("CountyRelativeDay100Cases",
+                      "TotalCasesUpToDate",
+                      "CountyRelativeDay100Deaths",
+                      "TotalDeathsUpToDate",
+                      "FirstCaseDay",
+                      "Deathsat1year",
+                      "Casesat1year",
+                      "fold")
+
   quantile_importance <- furrr::future_map_dfr(X, function(i) {
     quantile_boot_results_list <- list()
     blip_var_x_W <- list()
@@ -382,7 +392,9 @@ var_imp_quantile <- function(X,
 
       quantile_boot_results_list[[boot]] <- results_list
 
-      blip_var_W <- apply(resampled_data[, -c(1:8)], 2,  FUN = find_breaks, blip = blip)
+      resampled_data_filt <- resampled_data[, !names(resampled_data) %in% cols_to_remove]
+
+      blip_var_W <- apply(resampled_data_filt, 2,  FUN = find_breaks, blip = blip)
 
       blip_var_x_W[[boot]] <- blip_var_W
     }
