@@ -129,8 +129,8 @@ subcat_fold_df <- do.call(rbind, subcat_imp_results_list)
 mips_imp_results_df <- do.call(rbind, mips_imp_results_list)
 
 # Save results
-saveRDS(var_imp_fold_df, here("data/all_var_imp_results.RDS"))
-saveRDS(subcat_fold_df, here("data/all_subcat_imp_results.RDS"))
-saveRDS(mips_imp_results_df, here("data/all_mips_imp_results.RDS"))
+saveRDS(var_imp_fold_df, here("data/tc_var_imp_results.RDS"))
+saveRDS(subcat_fold_df, here("data/tc_subcat_imp_results.RDS"))
+saveRDS(mips_imp_results_df, here("data/tc_mips_imp_results.RDS"))
 
 
