@@ -30,16 +30,16 @@ total_outcomes <- c("CountyRelativeDay100Cases",
 
 ################ US Facts ##################
 
-usf <- data.frame(
-  read.csv("https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_confirmed_usafacts.csv"),
-  read.csv("https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv")
-)
+cases <- data.frame(read.csv("https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_confirmed_usafacts.csv"))
+deaths <- data.frame(read.csv("https://usafactsstatic.blob.core.windows.net/public/data/covid-19/covid_deaths_usafacts.csv"))
 
 # Parse FIPS as integers
-usf$fips <- as.integer(usf[, 1])
+cases$fips <- as.integer(cases$countyFIPS)
+deaths$fips <- as.integer(deaths$countyFIPS)
 
 # Remove counties in Alaska and Hawaii
-usf <- usf[!((usf$State %in% c("AK", "HI")) | (usf$fips == 0)), ]
+cases <- cases[!((cases$State %in% c("AK", "HI")) | (cases$fips == 0)), ]
+deaths <- deaths[!((deaths$State %in% c("AK", "HI")) | (deaths$fips == 0)), ]
 
 
 ################ County Polygons ##################
@@ -47,7 +47,7 @@ usf <- usf[!((usf$State %in% c("AK", "HI")) | (usf$fips == 0)), ]
 polygons <- counties(cb = F, year = 2019, class = "sf")
 polygons$fips <- as.integer(as.character(polygons$GEOID))
 # Keep only counties with data from US Facts
-polygons <- polygons[polygons$fips %in% usf$fips, ]
+polygons <- polygons[polygons$fips %in% cases$fips, ]
 # Order polygons by FIPS
 polygons <- polygons[order(polygons$fips), ]
 # Calculate counties centroids
@@ -67,22 +67,24 @@ counties <- data.frame(
 counties$State_name <- as.vector(cdlTools::fips(counties$State_FIPS,to='Name'))
 FIPS <- counties$FIPS
 
-ndays <- ncol(usf) / 2 - 5
-usf <- usf[match(counties$FIPS, usf$fips), ]
-mcases <- data.matrix(usf[, 6:(5 + ndays)])
-mdeaths <- data.matrix(usf[, (ndays + 10):(2 * ndays + 9)])
+ndays <- ncol(cases) - 4
+cases <- cases[match(counties$FIPS, cases$fips), ]
+deaths <- deaths[match(counties$FIPS, deaths$fips), ]
+
+mcases <- data.matrix(cases[, 5: ncol(cases)])
+mdeaths <- data.matrix(deaths[, 5: ncol(cases)])
 
 # Calculate counties cases and deaths statistics
 for (i in 1:nrow(counties)) {
   if (any(mcases[i,]>0)){
-    counties$TotalCasesUpToDate[i] <- mcases[i,ndays]
-    counties$TotalDeathsUpToDate[i] <- mdeaths[i,ndays]
+    counties$TotalCasesUpToDate[i] <- mcases[i,ndays-1]
+    counties$TotalDeathsUpToDate[i] <- mdeaths[i,ndays-1]
     fc <- min(which(mcases[i,]>0))
     counties$FirstCaseDay[i]<-fc
-    if (ndays-fc>=100) {counties$CountyRelativeDay100Deaths[i]=mdeaths[i,100]}
-    if (ndays-fc>=100) {counties$CountyRelativeDay100Cases[i]=mcases[i,fc+24]}
-    if (ndays-fc>=365) {counties$Deathsat1year[i]=mdeaths[i,365]}
-    if (ndays-fc>=365) {counties$Casesat1year[i]=mcases[i,365]}
+    counties$CountyRelativeDay100Deaths[i]=mdeaths[i,100]
+    counties$CountyRelativeDay100Cases[i]=mcases[i,100]
+    counties$Deathsat1year[i]=mdeaths[i,365]
+    counties$Casesat1year[i]=mcases[i,365]
   }
 }
 
@@ -638,6 +640,7 @@ colnames(final_covid_processed)[dim(final_covid_processed)[2]-1] <- "Population"
 
 final_covid_processed <- final_covid_processed[,colnames(final_covid_processed)!= "State_FIPS"]
 ## Column bind the outcome data and write the final dataset
+
 write.csv(final_covid_processed, file = PROCESSED_DATA_PATH("cleaned_covid_data_final.csv"))
 
 
